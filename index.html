@@ -1,0 +1,1759 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CareLink AI — Intelligent Healthcare Access Network</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdfa',
+              100: '#ccfbf1',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              800: '#115e59',
+              900: '#134e4a',
+              950: '#042f2e',
+            },
+            accent: {
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'glow': 'glow 2s ease-in-out infinite alternate',
+          },
+          keyframes: {
+            glow: {
+              '0%': { boxShadow: '0 0 5px rgba(20, 184, 166, 0.2)' },
+              '100%': { boxShadow: '0 0 20px rgba(20, 184, 166, 0.6)' }
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- React & React DOM -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel Compiler for JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Recharts & Babel helper -->
+  <script src="https://unpkg.com/prop-types@15.8.1/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
+
+  <!-- Font Awesome Icons fallback for extra badges -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .leaflet-container {
+      background-color: #0f172a !important;
+      border-radius: 0.75rem;
+    }
+    /* Custom dark map styling over standard OpenStreetMap tiles */
+    .dark-tiles .leaflet-tile {
+      filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #0d9488;
+    }
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.6);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 overflow-x-hidden custom-scrollbar">
+
+  <div id="root" class="h-full min-h-screen flex flex-col"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo } = React;
+    const { 
+      AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis, PieChart, Pie, Cell 
+    } = Recharts;
+
+    /* ==========================================================================
+       BANGALORE DEMO DATASET
+       ========================================================================== */
+    const BANGALORE_FACILITIES = [
+      {
+        id: "mhoar",
+        name: "Manipal Hospital Old Airport Rd",
+        type: "Hospital",
+        category: "Tertiary Care & Trauma Center",
+        lat: 12.9583,
+        lng: 77.6483,
+        address: "98, HAL Old Airport Rd, Kodihalli, Bengaluru",
+        distanceKm: 4.2,
+        travelTimeMins: 16,
+        currentWaitMins: 42,
+        predictedWaitMins: 22,
+        congestion: "Moderate", // Low, Moderate, High
+        capacityPercent: 78,
+        accessibilityScore: 92,
+        rating: 4.8,
+        phone: "+91 80 2502 4444",
+        emergencyReady: true,
+        services: ["Emergency Trauma", "Cardiology", "Neurology", "Pediatrics", "ICU", "24/7 Diagnostics"],
+        ayushmanBharat: true,
+        wheelchairAccess: true,
+        reasoning: "Selected for high emergency capability, 20-min wait-time drop projected within the hour, and full trauma readiness.",
+        matchScore: 94,
+        trend: "decreasing",
+        slots: ["10:30 AM", "11:45 AM", "02:15 PM", "04:30 PM", "06:00 PM"]
+      },
+      {
+        id: "apollo-bg",
+        name: "Apollo Hospitals Bannerghatta",
+        type: "Hospital",
+        category: "Super Specialty Emergency Hospital",
+        lat: 12.8958,
+        lng: 77.5988,
+        address: "154/11, Opp. IIMB, Bannerghatta Rd, Bengaluru",
+        distanceKm: 8.5,
+        travelTimeMins: 24,
+        currentWaitMins: 55,
+        predictedWaitMins: 48,
+        congestion: "High",
+        capacityPercent: 91,
+        accessibilityScore: 88,
+        rating: 4.7,
+        phone: "+91 80 2630 4050",
+        emergencyReady: true,
+        services: ["Trauma Care", "Organ Transplant", "Oncology", "Orthopedics", "24/7 Ambulance"],
+        ayushmanBharat: false,
+        wheelchairAccess: true,
+        reasoning: "High specialty capability, but current ER congestion is high due to morning rush. Recommended alternative if specialized care is mandatory.",
+        matchScore: 81,
+        trend: "increasing",
+        slots: ["11:00 AM", "01:30 PM", "03:15 PM", "05:45 PM"]
+      },
+      {
+        id: "stjohns",
+        name: "St. John's Medical College & Hospital",
+        type: "Government/Trust Hospital",
+        category: "Multi-Specialty Teaching Hospital",
+        lat: 12.9304,
+        lng: 77.6200,
+        address: "Sarjapur Road, John Nagar, Koramangala, Bengaluru",
+        distanceKm: 3.1,
+        travelTimeMins: 11,
+        currentWaitMins: 28,
+        predictedWaitMins: 18,
+        congestion: "Low",
+        capacityPercent: 62,
+        accessibilityScore: 95,
+        rating: 4.6,
+        phone: "+91 80 2206 5000",
+        emergencyReady: true,
+        services: ["Emergency Triage", "General Medicine", "Maternity", "Subsidized Diagnostics", "Blood Bank"],
+        ayushmanBharat: true,
+        wheelchairAccess: true,
+        reasoning: "BEST MATCH: Lowest predicted wait time (18m), closest proximity (3.1km), and highest accessibility ranking for senior citizens.",
+        matchScore: 98,
+        trend: "decreasing",
+        slots: ["10:00 AM", "10:45 AM", "12:00 PM", "02:30 PM", "04:00 PM"]
+      },
+      {
+        id: "fortis-cunningham",
+        name: "Fortis Hospital Cunningham Rd",
+        type: "Hospital",
+        category: "Cardiac & Vascular Care Center",
+        lat: 12.9870,
+        lng: 77.5950,
+        address: "14, Cunningham Rd, Vasanth Nagar, Bengaluru",
+        distanceKm: 6.7,
+        travelTimeMins: 20,
+        currentWaitMins: 35,
+        predictedWaitMins: 30,
+        congestion: "Moderate",
+        capacityPercent: 70,
+        accessibilityScore: 89,
+        rating: 4.6,
+        phone: "+91 80 4199 4444",
+        emergencyReady: true,
+        services: ["Cardiology", "Cardiothoracic Surgery", "ICU", "Dialysis", "24/7 Pharmacy"],
+        ayushmanBharat: false,
+        wheelchairAccess: true,
+        reasoning: "Top cardiac specialist availability with stable moderate wait times.",
+        matchScore: 86,
+        trend: "stable",
+        slots: ["09:30 AM", "11:15 AM", "03:00 PM", "05:00 PM"]
+      },
+      {
+        id: "victoria",
+        name: "Victoria Hospital (BMCRI)",
+        type: "Government Hospital",
+        category: "Public Apex Hospital",
+        lat: 12.9634,
+        lng: 77.5746,
+        address: "Fort, near City Market, Bengaluru",
+        distanceKm: 7.2,
+        travelTimeMins: 22,
+        currentWaitMins: 60,
+        predictedWaitMins: 50,
+        congestion: "High",
+        capacityPercent: 95,
+        accessibilityScore: 84,
+        rating: 4.2,
+        phone: "+91 80 2670 1150",
+        emergencyReady: true,
+        services: ["Burns Ward", "Emergency Medicine", "General Surgery", "Free Medicine Counter"],
+        ayushmanBharat: true,
+        wheelchairAccess: true,
+        reasoning: "Complete government subsidization and emergency burns unit; high patient inflow.",
+        matchScore: 75,
+        trend: "stable",
+        slots: ["11:30 AM", "02:00 PM"]
+      },
+      {
+        id: "neuberg-kormangala",
+        name: "Neuberg Anand Diagnostics Koramangala",
+        type: "Diagnostic Center",
+        category: "Advanced Pathology & Imaging",
+        lat: 12.9348,
+        lng: 77.6254,
+        address: "80 Feet Rd, 4th Block, Koramangala, Bengaluru",
+        distanceKm: 2.5,
+        travelTimeMins: 8,
+        currentWaitMins: 12,
+        predictedWaitMins: 10,
+        congestion: "Low",
+        capacityPercent: 45,
+        accessibilityScore: 94,
+        rating: 4.9,
+        phone: "+91 80 2553 4488",
+        emergencyReady: false,
+        services: ["CT Scan", "MRI 3T", "Ultrasound", "Blood Profile", "ECG", "Home Collection"],
+        ayushmanBharat: false,
+        wheelchairAccess: true,
+        reasoning: "Ultra-low wait times for blood work and instant digital report sync.",
+        matchScore: 92,
+        trend: "decreasing",
+        slots: ["08:00 AM", "09:00 AM", "10:00 AM", "11:30 AM", "04:00 PM"]
+      },
+      {
+        id: "medplus-hsr",
+        name: "Apollo Pharmacy & MedPlus Express HSR",
+        type: "Pharmacy",
+        category: "24/7 Retail & Emergency Medicine",
+        lat: 12.9116,
+        lng: 77.6474,
+        address: "Sector 1, HSR Layout, Bengaluru",
+        distanceKm: 3.8,
+        travelTimeMins: 10,
+        currentWaitMins: 5,
+        predictedWaitMins: 5,
+        congestion: "Low",
+        capacityPercent: 30,
+        accessibilityScore: 96,
+        rating: 4.7,
+        phone: "+91 80 2572 1000",
+        emergencyReady: false,
+        services: ["24/7 Prescription Drugs", "Vaccines", "Oxygen Cylinders", "Surgical Supplies"],
+        ayushmanBharat: false,
+        wheelchairAccess: true,
+        reasoning: "In-stock verification for critical cardiac and respiratory drugs.",
+        matchScore: 96,
+        trend: "stable",
+        slots: ["Immediate Pickup Available"]
+      },
+      {
+        id: "mobile-camp-anekal",
+        name: "Namma Clinic Mobile Unit #07 (Anekal Outreach)",
+        type: "Mobile Clinic",
+        category: "Community Outreach & Preventive Care",
+        lat: 12.7104,
+        lng: 77.6974,
+        address: "Anekal Community Center Ground, Bengaluru Rural",
+        distanceKm: 18.2,
+        travelTimeMins: 40,
+        currentWaitMins: 15,
+        predictedWaitMins: 12,
+        congestion: "Low",
+        capacityPercent: 50,
+        accessibilityScore: 78,
+        rating: 4.9,
+        phone: "+91 80 2210 1111",
+        emergencyReady: false,
+        services: ["Free Diabetes Screening", "Maternal Health", "Pediatric Vaccination", "Tele-consulting"],
+        ayushmanBharat: true,
+        wheelchairAccess: true,
+        reasoning: "Active rural healthcare deployment serving underserved Cluster 07.",
+        matchScore: 90,
+        trend: "stable",
+        slots: ["Saturday 09:00 AM - 01:00 PM", "Saturday 02:00 PM - 05:00 PM"]
+      }
+    ];
+
+    const DESERT_CLUSTERS = [
+      {
+        id: "cluster-07",
+        name: "Anekal Peri-Urban Cluster 07",
+        lat: 12.7100,
+        lng: 77.6900,
+        accessScore: 32,
+        priority: "HIGH PRIORITY",
+        population: "84,000",
+        avgDistanceToHospital: "14.2 km",
+        primaryDeficit: "Lack of 24/7 Emergency Trauma care & ICU Beds within 20 mins",
+        color: "#ef4444"
+      },
+      {
+        id: "cluster-03",
+        name: "Jigani Industrial Peripheral Zone",
+        lat: 12.7800,
+        lng: 77.6400,
+        accessScore: 41,
+        priority: "MEDIUM PRIORITY",
+        population: "52,000",
+        avgDistanceToHospital: "9.8 km",
+        primaryDeficit: "Occupational health triage and diagnostic center deficiency",
+        color: "#f59e0b"
+      },
+      {
+        id: "cluster-09",
+        name: "Kadugodi East Urban Slum Belt",
+        lat: 12.9900,
+        lng: 77.7600,
+        accessScore: 38,
+        priority: "HIGH PRIORITY",
+        population: "61,000",
+        avgDistanceToHospital: "11.5 km",
+        primaryDeficit: "High congestion delays; traffic bottleneck prevents emergency ingress",
+        color: "#ef4444"
+      }
+    ];
+
+    const MOBILE_CAMPS = [
+      {
+        id: "mc-1",
+        title: "Anekal Rural Health & Diabetes Camp",
+        location: "Anekal Govt School Grounds, South Bengaluru",
+        date: "Saturday, Oct 17, 2026",
+        time: "09:00 AM - 03:00 PM",
+        services: ["General Health Check", "HbA1c & Blood Pressure", "Eye Screening", "Free Medicines"],
+        popServed: "~1,200 villagers",
+        status: "Confirmed",
+        lat: 12.7104,
+        lng: 77.6974
+      },
+      {
+        id: "mc-2",
+        title: "Electronic City Phase 2 Workers Wellness Drive",
+        location: "Opp. Industrial Area Gate 4, Electronic City",
+        date: "Sunday, Oct 18, 2026",
+        time: "10:00 AM - 04:00 PM",
+        services: ["Occupational Health Assessment", "Lung Function Test", "Vitamin Deficiencies"],
+        popServed: "~850 factory workers",
+        status: "Registration Open",
+        lat: 12.8450,
+        lng: 77.6780
+      },
+      {
+        id: "mc-3",
+        title: "Sarjapur Peri-Urban Maternal & Child Care Camp",
+        location: "Sarjapur Bus Stand Complex",
+        date: "Wednesday, Oct 21, 2026",
+        time: "09:30 AM - 02:30 PM",
+        services: ["Pediatric Immunization", "Antenatal Checkups", "Nutrition Counseling"],
+        popServed: "~600 mothers & children",
+        status: "Upcoming",
+        lat: 12.8600,
+        lng: 77.7800
+      }
+    ];
+
+    /* ==========================================================================
+       MAIN APP COMPONENT
+       ========================================================================== */
+    function App() {
+      // Navigation State
+      const [activeTab, setActiveTab] = useState('home'); // home, find-care, map, emergency, mobile-clinics, appointments, family, copilot, analytics, admin
+      
+      // User Profile & Family State
+      const [activeFamilyMember, setActiveFamilyMember] = useState({
+        id: 'father',
+        name: 'Ramesh (Father)',
+        age: 68,
+        relation: 'Senior Parent',
+        mobility: 'Wheelchair Assistance',
+        preferredCategory: 'Tertiary Hospital / Trauma',
+        insurance: 'Star Health Senior Citizen / Ayushman Bharat'
+      });
+
+      const [userProfile, setUserProfile] = useState({
+        locationName: 'Koramangala, Bengaluru',
+        lat: 12.9352,
+        lng: 77.6245,
+        language: 'English / Kannada',
+        wheelchairRequired: true,
+        maxDistanceKm: 15,
+        preferredFacilityType: 'All',
+        paymentType: 'Insurance & Cash'
+      });
+
+      // Search & Triage State
+      const [searchQuery, setSearchQuery] = useState('');
+      const [aiFilterCategory, setAiFilterCategory] = useState(null);
+      const [selectedFacility, setSelectedFacility] = useState(BANGALORE_FACILITIES[0]);
+      const [filterType, setFilterType] = useState('All');
+      const [filterLowWaitOnly, setFilterLowWaitOnly] = useState(false);
+      const [filterEmergencyOnly, setFilterEmergencyOnly] = useState(false);
+      const [filterAyushmanOnly, setFilterAyushmanOnly] = useState(false);
+
+      // Appointments State
+      const [appointments, setAppointments] = useState([
+        {
+          id: 'APT-8092',
+          facilityName: 'St. John\'s Medical College & Hospital',
+          doctorName: 'Dr. S. K. Murthy (General Cardiology)',
+          timeSlot: 'Today at 02:30 PM',
+          patientName: 'Ramesh (Father)',
+          status: 'Confirmed',
+          qrCodeVal: 'CARE-8092-STJOHNS'
+        }
+      ]);
+      const [showBookingModal, setShowBookingModal] = useState(false);
+      const [selectedSlot, setSelectedSlot] = useState(null);
+      const [bookingSuccessModal, setBookingSuccessModal] = useState(null);
+
+      // Emergency State
+      const [emergencyActive, setEmergencyActive] = useState(false);
+      const [emergencyAlertSent, setEmergencyAlertSent] = useState(false);
+
+      // AI Copilot State
+      const [copilotMessages, setCopilotMessages] = useState([
+        {
+          sender: 'ai',
+          text: 'Hello! I am CareLink AI Navigator. How can I assist your family healthcare navigation in Bangalore today? You can ask about urgent care wait times, mobile camps, or healthcare desert clusters.'
+        }
+      ]);
+      const [copilotInput, setCopilotInput] = useState('');
+      const [isCopilotThinking, setIsCopilotThinking] = useState(false);
+
+      // Notification Alerts Ticker State
+      const [alerts, setAlerts] = useState([
+        { id: 1, text: '🔴 Apollo Bannerghatta ER experiencing peak congestion (+35m wait). St. John\'s recommended.', type: 'danger' },
+        { id: 2, text: '🚑 Mobile Clinic #07 active in Anekal Rural Cluster today until 5:00 PM.', type: 'info' },
+        { id: 3, text: '⚡ CareLink AI predicted 20-min wait reduction at Manipal HAL Airport Rd by 11:30 AM.', type: 'success' }
+      ]);
+
+      // Admin Data Management State (B2B SaaS)
+      const [facilityDataset, setFacilityDataset] = useState(BANGALORE_FACILITIES);
+      const [adminSelectedFacilityId, setAdminSelectedFacilityId] = useState('mhoar');
+
+      // Initialize Lucide icons on DOM updates
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      }, [activeTab, searchQuery, emergencyActive, copilotMessages, facilityDataset]);
+
+      /* ==========================================================================
+         GEMINI AI API INTEGRATION (CO PILOT & TRIAGE)
+         ========================================================================== */
+      const handleSendCopilot = async (overridePrompt) => {
+        const textToSend = overridePrompt || copilotInput;
+        if (!textToSend.trim()) return;
+
+        // Add user message
+        const newMessages = [...copilotMessages, { sender: 'user', text: textToSend }];
+        setCopilotMessages(newMessages);
+        if (!overridePrompt) setCopilotInput('');
+        setIsCopilotThinking(true);
+
+        try {
+          const apiKey = ""; // Canvas runtime environment automatically provides token if empty
+          const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+          const systemPrompt = `You are CareLink AI, an intelligent, startup-grade healthcare access navigation assistant for Bengaluru (Bangalore), India. 
+          Your mission: "Know where to go. Get care faster."
+          You have real-time context of current Bangalore facilities:
+          1. Manipal Hospital Old Airport Rd (4.2km, wait: 22m predicted, Trauma Ready, 94% match)
+          2. St. John's Medical College Hospital Sarjapur Rd (3.1km, wait: 18m predicted, HIGH ACCESSIBILITY, 98% match)
+          3. Apollo Hospitals Bannerghatta (8.5km, wait: 48m predicted, HIGH ER CONGESTION)
+          4. Neuberg Diagnostic Koramangala (2.5km, wait: 10m predicted)
+          5. Anekal Mobile Health Camp #07 (18.2km away, serving Desert Cluster 07)
+
+          RULES:
+          - NEVER diagnose medical diseases or prescribe medications.
+          - Guide the user on WHERE TO GO right now based on travel time, wait times, capacity, and mobility requirements.
+          - Highlight why one facility is better than another (e.g. "St. Johns is 5 minutes closer and has a 30-min lower wait time").
+          - Respond in clean, professional, concise markdown or bullet points. Keep it punchy and clear.`;
+
+          const payload = {
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: textToSend }]
+              }
+            ],
+            systemInstruction: {
+              parts: [{ text: systemPrompt }]
+            }
+          };
+
+          const res = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await res.json();
+          const aiResponseText = data?.candidates?.[0]?.content?.parts?.[0]?.text 
+            || "CareLink AI Recommendation: Based on live Bangalore data, St. John's Medical College Hospital on Sarjapur Road is your best option right now with an estimated wait of only 18 minutes.";
+
+          setCopilotMessages([...newMessages, { sender: 'ai', text: aiResponseText }]);
+        } catch (error) {
+          console.error("Gemini API Error:", error);
+          // Fallback context response
+          setCopilotMessages([
+            ...newMessages,
+            { 
+              sender: 'ai', 
+              text: `**CareLink AI Recommendation:**\nFor urgent care for ${activeFamilyMember.name}, **St. John's Medical College Hospital** (3.1 km away) is ranked **#1**. It has a predicted wait time of only **18 mins** compared to Apollo Bannerghatta's **48 mins**. Full wheelchair accessibility & Ayushman Bharat support confirmed.` 
+            }
+          ]);
+        } finally {
+          setIsCopilotThinking(false);
+        }
+      };
+
+      // Triage Search trigger
+      const handleNaturalLanguageSearch = (query) => {
+        setSearchQuery(query);
+        if (query.toLowerCase().includes('father') || query.toLowerCase().includes('urgent') || query.toLowerCase().includes('chest') || query.toLowerCase().includes('elder')) {
+          setAiFilterCategory('Emergency Triage');
+          setActiveTab('find-care');
+        } else if (query.toLowerCase().includes('blood') || query.toLowerCase().includes('scan') || query.toLowerCase().includes('test')) {
+          setFilterType('Diagnostic Center');
+          setActiveTab('find-care');
+        } else if (query.toLowerCase().includes('pharmacy') || query.toLowerCase().includes('medicine')) {
+          setFilterType('Pharmacy');
+          setActiveTab('find-care');
+        } else {
+          setActiveTab('find-care');
+        }
+      };
+
+      /* ==========================================================================
+         TOP BAR & BRAND HEADER
+         ========================================================================== */
+      return (
+        <div className="flex flex-col h-screen overflow-hidden bg-slate-950 text-slate-100">
+          
+          {/* Top Banner Ticker */}
+          <div className="bg-slate-900/90 border-b border-slate-800 text-xs px-4 py-1.5 flex items-center justify-between text-slate-300 backdrop-blur-md z-50">
+            <div className="flex items-center gap-3 overflow-hidden">
+              <span className="bg-brand-500/20 text-brand-400 border border-brand-500/30 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide uppercase">
+                BANGALORE GRID LIVE
+              </span>
+              <div className="flex items-center gap-2 animate-pulse text-slate-300 text-xs truncate">
+                <i data-lucide="bell" className="w-3.5 h-3.5 text-brand-400 shrink-0"></i>
+                <span className="truncate">{alerts[0].text}</span>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-4 text-[11px] shrink-0 text-slate-400">
+              <span className="flex items-center gap-1"><i data-lucide="map-pin" className="w-3 h-3 text-teal-400"></i> {userProfile.locationName}</span>
+              <span className="flex items-center gap-1"><i data-lucide="user" className="w-3 h-3 text-cyan-400"></i> Active Profile: <strong className="text-slate-200">{activeFamilyMember.name}</strong></span>
+              <span className="text-amber-400/90 bg-amber-400/10 px-2 py-0.5 rounded border border-amber-400/20 font-mono">
+                DEMO DATA — Simulated AI Estimates
+              </span>
+            </div>
+          </div>
+
+          {/* Main Navigation Navbar */}
+          <header className="bg-slate-900/80 backdrop-blur-xl border-b border-slate-800/80 sticky top-0 z-40 px-4 lg:px-8 py-3 flex items-center justify-between shadow-2xl">
+            {/* Brand Logo */}
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setActiveTab('home')}>
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 via-teal-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-brand-500/20 ring-1 ring-white/20">
+                <i data-lucide="activity" className="w-6 h-6 text-slate-950 stroke-[2.5]"></i>
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-extrabold text-xl tracking-tight text-white font-sans">
+                    CareLink <span className="bg-gradient-to-r from-brand-400 to-cyan-400 bg-clip-text text-transparent">AI</span>
+                  </span>
+                  <span className="bg-brand-500/10 text-brand-300 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-brand-500/20">
+                    PRO
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 -mt-0.5 font-medium tracking-wide">Know where to go. Get care faster.</p>
+              </div>
+            </div>
+
+            {/* Central Navigation Tabs */}
+            <nav className="hidden lg:flex items-center gap-1 bg-slate-950/60 p-1.5 rounded-2xl border border-slate-800/80">
+              {[
+                { id: 'home', label: 'Home', icon: 'home' },
+                { id: 'find-care', label: 'Find Care', icon: 'search' },
+                { id: 'map', label: 'Healthcare Map', icon: 'map' },
+                { id: 'mobile-clinics', label: 'Mobile Camps', icon: 'truck' },
+                { id: 'appointments', label: 'Visits & Slots', icon: 'calendar' },
+                { id: 'family', label: 'Family', icon: 'users' },
+                { id: 'copilot', label: 'AI Copilot', icon: 'bot' },
+                { id: 'analytics', label: 'Analytics', icon: 'line-chart' }
+              ].map((item) => (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    activeTab === item.id 
+                      ? 'bg-gradient-to-r from-brand-600 to-teal-600 text-white shadow-lg shadow-brand-600/30' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <i data-lucide={item.icon} className="w-4 h-4"></i>
+                  {item.label}
+                </button>
+              ))}
+            </nav>
+
+            {/* Right Quick Actions: Emergency Button & Admin Toggle */}
+            <div className="flex items-center gap-3">
+              {/* Emergency Trigger Button */}
+              <button
+                onClick={() => {
+                  setEmergencyActive(true);
+                  setActiveTab('emergency');
+                }}
+                className="relative group overflow-hidden bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg shadow-red-600/40 flex items-center gap-2 ring-2 ring-red-400/50 animate-pulse"
+              >
+                <i data-lucide="siren" className="w-4 h-4 text-white"></i>
+                <span className="tracking-wide uppercase">Emergency</span>
+              </button>
+
+              {/* Admin / Provider Portal Switcher */}
+              <button
+                onClick={() => setActiveTab(activeTab === 'admin' ? 'home' : 'admin')}
+                className={`p-2 rounded-xl border text-xs font-medium flex items-center gap-1.5 transition-all ${
+                  activeTab === 'admin'
+                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
+                    : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:bg-slate-700/60'
+                }`}
+                title="Toggle B2B Provider Dashboard"
+              >
+                <i data-lucide="building-2" className="w-4 h-4 text-cyan-400"></i>
+                <span className="hidden sm:inline">Hospital Portal</span>
+              </button>
+            </div>
+          </header>
+
+          {}
+          {/* Main Body Container */}
+          <main className="flex-1 overflow-y-auto custom-scrollbar relative bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+
+            {/* ==========================================================================
+               1. SMART HOME VIEW
+               ========================================================================== */}
+            {activeTab === 'home' && (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
+                
+                {/* Hero Banner Section */}
+                <div className="relative rounded-3xl overflow-hidden p-8 lg:p-12 border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900/90 to-brand-950/40 shadow-2xl">
+                  <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                  <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                  <div className="relative z-10 max-w-3xl space-y-6">
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-semibold">
+                      <i data-lucide="sparkles" className="w-3.5 h-3.5 text-brand-400"></i>
+                      Next-Gen Healthcare Access Engine for Bengaluru
+                    </div>
+
+                    <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight">
+                      What healthcare do you need today?
+                    </h1>
+                    
+                    <p className="text-slate-300 text-sm sm:text-base leading-relaxed">
+                      Instead of simply listing nearby hospitals, <strong className="text-brand-300">CareLink AI</strong> calculates real-time traffic, emergency ER queue wait-times, and capacity to tell you exactly: <em className="text-cyan-300 font-medium font-sans">"Where should you go right now?"</em>
+                    </p>
+
+                    {/* AI Smart Prompt Bar */}
+                    <div className="relative glass-panel rounded-2xl p-2 border border-slate-700/80 shadow-2xl flex flex-col sm:flex-row items-center gap-2">
+                      <div className="flex items-center gap-3 px-3 w-full sm:w-auto flex-1">
+                        <i data-lucide="bot" className="w-5 h-5 text-brand-400 shrink-0"></i>
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleNaturalLanguageSearch(searchQuery)}
+                          placeholder="Try: 'I need urgent medical care for my senior father' or 'Eye specialist in Rajajinagar'..."
+                          className="w-full bg-transparent text-sm text-slate-100 placeholder-slate-400 focus:outline-none py-2"
+                        />
+                      </div>
+                      <button
+                        onClick={() => handleNaturalLanguageSearch(searchQuery || "Urgent care for elderly father")}
+                        className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-brand-500 to-teal-500 hover:from-brand-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs tracking-wide uppercase shadow-lg shadow-brand-500/25 flex items-center justify-center gap-2 transition-all shrink-0"
+                      >
+                        <i data-lucide="sparkles" className="w-4 h-4 text-slate-950"></i>
+                        AI Triage Search
+                      </button>
+                    </div>
+
+                    {/* Quick Query Pills */}
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span className="font-semibold text-slate-500">Popular queries:</span>
+                      {[
+                        "Urgent ER care for father",
+                        "24/7 Pharmacy near Koramangala",
+                        "Lowest wait hospital",
+                        "Anekal Mobile Camp"
+                      ].map((promptText, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => handleNaturalLanguageSearch(promptText)}
+                          className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1 rounded-full transition-all text-[11px]"
+                        >
+                          {promptText}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Actions Grid */}
+                <div className="space-y-4">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="layout-grid" className="w-5 h-5 text-brand-400"></i>
+                    Quick Healthcare Navigation Actions
+                  </h2>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                    {[
+                      { title: "Find Care", desc: "Ranked by wait time", icon: "search", color: "from-teal-500 to-brand-600", action: () => setActiveTab('find-care') },
+                      { title: "Emergency", desc: "Fastest 108 trauma care", icon: "siren", color: "from-red-600 to-rose-700", action: () => { setEmergencyActive(true); setActiveTab('emergency'); } },
+                      { title: "Nearby Map", desc: "Live OSM view", icon: "map-pin", color: "from-cyan-500 to-blue-600", action: () => setActiveTab('map') },
+                      { title: "Mobile Camps", desc: "Rural outreach", icon: "truck", color: "from-emerald-500 to-teal-700", action: () => setActiveTab('mobile-clinics') },
+                      { title: "Diagnostics", desc: "CT/MRI & Blood labs", icon: "microscope", color: "from-purple-500 to-indigo-600", action: () => { setFilterType('Diagnostic Center'); setActiveTab('find-care'); } },
+                      { title: "24/7 Pharmacy", desc: "Stock verification", icon: "pill", color: "from-amber-500 to-orange-600", action: () => { setFilterType('Pharmacy'); setActiveTab('find-care'); } }
+                    ].map((act, i) => (
+                      <div
+                        key={i}
+                        onClick={act.action}
+                        className="glass-card rounded-2xl p-4 border border-slate-800 hover:border-brand-500/40 hover:bg-slate-800/80 cursor-pointer transition-all duration-300 group flex flex-col justify-between space-y-3"
+                      >
+                        <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${act.color} flex items-center justify-center text-white shadow-md group-hover:scale-110 transition-transform`}>
+                          <i data-lucide={act.icon} className="w-5 h-5"></i>
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-sm text-white group-hover:text-brand-300 transition-colors">{act.title}</h3>
+                          <p className="text-[11px] text-slate-400 mt-0.5">{act.desc}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Top Recommended Facilities Spotlight */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                        <i data-lucide="award" className="w-5 h-5 text-amber-400"></i>
+                        AI Top Recommendations for {activeFamilyMember.name}
+                      </h2>
+                      <p className="text-xs text-slate-400">Real-time ranking considering distance, traffic, and ER queue delays</p>
+                    </div>
+                    <button 
+                      onClick={() => setActiveTab('find-care')}
+                      className="text-xs font-semibold text-brand-400 hover:text-brand-300 flex items-center gap-1"
+                    >
+                      View all facilities <i data-lucide="arrow-right" className="w-3.5 h-3.5"></i>
+                    </button>
+                  </div>
+
+                  {/* Recommendation Cards */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {BANGALORE_FACILITIES.slice(0, 3).map((facility, index) => {
+                      const badges = [
+                        { rank: "🥇 Best Match", bg: "bg-amber-400/20 text-amber-300 border-amber-400/30" },
+                        { rank: "🥈 Strong Alternative", bg: "bg-slate-300/20 text-slate-200 border-slate-300/30" },
+                        { rank: "🥉 Backup Facility", bg: "bg-orange-500/20 text-orange-300 border-orange-500/30" }
+                      ];
+
+                      return (
+                        <div key={facility.id} className="glass-panel rounded-2xl p-5 border border-slate-800 space-y-4 hover:border-slate-700 transition-all flex flex-col justify-between">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${badges[index].bg}`}>
+                                {badges[index].rank}
+                              </span>
+                              <span className="text-xs font-mono font-bold text-brand-400 bg-brand-500/10 px-2 py-0.5 rounded border border-brand-500/20">
+                                {facility.matchScore}% Match
+                              </span>
+                            </div>
+
+                            <div>
+                              <h3 className="font-bold text-base text-white">{facility.name}</h3>
+                              <p className="text-xs text-slate-400 flex items-center gap-1 mt-1">
+                                <i data-lucide="map-pin" className="w-3 h-3 text-slate-500"></i>
+                                {facility.address}
+                              </p>
+                            </div>
+
+                            {/* Key Performance Indicators */}
+                            <div className="grid grid-cols-3 gap-2 py-2 bg-slate-900/80 rounded-xl p-2.5 border border-slate-800 text-center">
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Travel</span>
+                                <span className="text-xs font-bold text-slate-200">{facility.travelTimeMins} mins</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Est. Wait</span>
+                                <span className="text-xs font-bold text-teal-400">{facility.predictedWaitMins} mins</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-slate-400 uppercase font-semibold block">Access Score</span>
+                                <span className="text-xs font-bold text-cyan-400">{facility.accessibilityScore}/100</span>
+                              </div>
+                            </div>
+
+                            <p className="text-xs text-slate-300 bg-slate-800/40 p-2.5 rounded-xl border border-slate-800 italic leading-relaxed">
+                              "{facility.reasoning}"
+                            </p>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              setSelectedFacility(facility);
+                              setActiveTab('find-care');
+                            }}
+                            className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-brand-600 text-white font-bold text-xs transition-colors flex items-center justify-center gap-2"
+                          >
+                            <span>Inspect Facility & Slots</span>
+                            <i data-lucide="chevron-right" className="w-4 h-4"></i>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* ==========================================================================
+               2. SMART CARE FINDER & AI RECOMMENDATION ENGINE
+               ========================================================================== */}
+            {activeTab === 'find-care' && (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                
+                {/* Header & Filter Controls */}
+                <div className="space-y-4">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                      <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                        <i data-lucide="search" className="w-6 h-6 text-brand-400"></i>
+                        Smart Healthcare Facility Finder
+                      </h1>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Ranked dynamically for <strong className="text-slate-200">{activeFamilyMember.name}</strong> • Location: Koramangala
+                      </p>
+                    </div>
+
+                    {/* Quick Filters */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {['All', 'Hospital', 'Government Hospital', 'Diagnostic Center', 'Pharmacy', 'Mobile Clinic'].map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => setFilterType(type)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                            filterType === type 
+                              ? 'bg-brand-500 text-slate-950 shadow-md shadow-brand-500/20' 
+                              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+                          }`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Toggle Checkboxes */}
+                  <div className="flex flex-wrap items-center gap-4 bg-slate-900/60 p-3 rounded-2xl border border-slate-800 text-xs">
+                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={filterLowWaitOnly}
+                        onChange={(e) => setFilterLowWaitOnly(e.target.checked)}
+                        className="rounded bg-slate-950 border-slate-700 text-brand-500 focus:ring-0"
+                      />
+                      <span>Low Wait Time (&lt; 25 mins)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={filterEmergencyOnly}
+                        onChange={(e) => setFilterEmergencyOnly(e.target.checked)}
+                        className="rounded bg-slate-950 border-slate-700 text-brand-500 focus:ring-0"
+                      />
+                      <span>24/7 Emergency Ready</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-slate-300">
+                      <input
+                        type="checkbox"
+                        checked={filterAyushmanOnly}
+                        onChange={(e) => setFilterAyushmanOnly(e.target.checked)}
+                        className="rounded bg-slate-950 border-slate-700 text-brand-500 focus:ring-0"
+                      />
+                      <span>Ayushman Bharat / Subsidized</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* Grid Split: Facility List & Explainable AI Detail Panel */}
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                  
+                  {/* Left Column: Ranked List */}
+                  <div className="lg:col-span-7 space-y-4">
+                    {BANGALORE_FACILITIES
+                      .filter(f => filterType === 'All' || f.type.includes(filterType) || f.category.includes(filterType))
+                      .filter(f => !filterLowWaitOnly || f.predictedWaitMins <= 25)
+                      .filter(f => !filterEmergencyOnly || f.emergencyReady)
+                      .filter(f => !filterAyushmanOnly || f.ayushmanBharat)
+                      .map((facility) => {
+                        const isSelected = selectedFacility?.id === facility.id;
+
+                        return (
+                          <div
+                            key={facility.id}
+                            onClick={() => setSelectedFacility(facility)}
+                            className={`glass-panel rounded-2xl p-5 border cursor-pointer transition-all space-y-3 ${
+                              isSelected 
+                                ? 'border-brand-500 bg-slate-900/90 ring-1 ring-brand-500/30' 
+                                : 'border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-bold text-base text-white">{facility.name}</h3>
+                                  {facility.emergencyReady && (
+                                    <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded">
+                                      24/7 ER
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-xs text-slate-400 mt-1">{facility.category} • {facility.address}</p>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <span className="text-sm font-extrabold text-brand-400 font-mono">{facility.matchScore}%</span>
+                                <span className="text-[10px] text-slate-500 block">AI Match Score</span>
+                              </div>
+                            </div>
+
+                            {/* Metrics Strip */}
+                            <div className="flex flex-wrap items-center justify-between text-xs pt-2 border-t border-slate-800/80 text-slate-300 gap-2">
+                              <span className="flex items-center gap-1">
+                                <i data-lucide="navigation" className="w-3.5 h-3.5 text-teal-400"></i>
+                                {facility.distanceKm} km ({facility.travelTimeMins} mins drive)
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <i data-lucide="clock" className="w-3.5 h-3.5 text-amber-400"></i>
+                                Est. Wait: <strong className="text-white">{facility.predictedWaitMins}m</strong>
+                                <span className="text-[10px] text-slate-500">(Cur: {facility.currentWaitMins}m)</span>
+                              </span>
+                              <span className="flex items-center gap-1">
+                                <i data-lucide="accessibility" className="w-3.5 h-3.5 text-cyan-400"></i>
+                                Access: <strong className="text-cyan-300">{facility.accessibilityScore}/100</strong>
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  {/* Right Column: Explainable AI & Booking Panel */}
+                  <div className="lg:col-span-5">
+                    {selectedFacility ? (
+                      <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-6 sticky top-24">
+                        <div className="flex items-start justify-between border-b border-slate-800 pb-4">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-brand-400">Facility Deep Dive</span>
+                            <h2 className="text-xl font-bold text-white mt-0.5">{selectedFacility.name}</h2>
+                            <p className="text-xs text-slate-400">{selectedFacility.category}</p>
+                          </div>
+                          <span className="bg-brand-500/10 text-brand-300 border border-brand-500/20 text-xs font-bold px-3 py-1 rounded-xl">
+                            {selectedFacility.matchScore}% Match
+                          </span>
+                        </div>
+
+                        {/* Explainable AI Confidence Breakdown Bars */}
+                        <div className="space-y-3 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+                          <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wide flex items-center gap-1.5">
+                            <i data-lucide="cpu" className="w-4 h-4 text-brand-400"></i>
+                            Explainable AI Match Reasoning
+                          </h3>
+
+                          <div className="space-y-2 text-xs">
+                            <div>
+                              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                                <span>Proximity & Travel Time</span>
+                                <span className="text-slate-200 font-bold">92%</span>
+                              </div>
+                              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-teal-400 h-full rounded-full" style={{ width: '92%' }}></div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                                <span>Predicted Wait Time Advantage</span>
+                                <span className="text-slate-200 font-bold">96%</span>
+                              </div>
+                              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-brand-400 h-full rounded-full" style={{ width: '96%' }}></div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="flex justify-between text-[11px] text-slate-400 mb-1">
+                                <span>Wheelchair & Senior Accessibility</span>
+                                <span className="text-slate-200 font-bold">{selectedFacility.accessibilityScore}%</span>
+                              </div>
+                              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                <div className="bg-cyan-400 h-full rounded-full" style={{ width: `${selectedFacility.accessibilityScore}%` }}></div>
+                              </div>
+                            </div>
+                          </div>
+
+                          <p className="text-xs text-slate-300 italic pt-2 border-t border-slate-800/80">
+                            "{selectedFacility.reasoning}"
+                          </p>
+                        </div>
+
+                        {/* Available Services Pills */}
+                        <div className="space-y-2">
+                          <h4 className="text-xs font-semibold text-slate-400">Services & Triage Depth:</h4>
+                          <div className="flex flex-wrap gap-1.5">
+                            {selectedFacility.services.map((srv, idx) => (
+                              <span key={idx} className="bg-slate-800 text-slate-300 text-[11px] px-2.5 py-1 rounded-lg border border-slate-700">
+                                {srv}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Appointment Slots Selection */}
+                        <div className="space-y-3 pt-2">
+                          <h4 className="text-xs font-semibold text-slate-300 flex items-center justify-between">
+                            <span>Available Visit / Token Slots Today:</span>
+                            <span className="text-[10px] text-brand-400">Instant Digital Confirmation</span>
+                          </h4>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {selectedFacility.slots.map((slot, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setSelectedSlot(slot);
+                                  setShowBookingModal(true);
+                                }}
+                                className="py-2 px-3 rounded-xl bg-slate-900 hover:bg-brand-600 hover:text-white border border-slate-800 text-xs font-bold text-slate-300 transition-all text-center"
+                              >
+                                {slot}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Direct Contact & Navigation */}
+                        <div className="flex items-center gap-3 pt-4 border-t border-slate-800">
+                          <a
+                            href={`tel:${selectedFacility.phone}`}
+                            className="flex-1 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold text-center flex items-center justify-center gap-2"
+                          >
+                            <i data-lucide="phone" className="w-4 h-4 text-teal-400"></i>
+                            Call Helpline
+                          </a>
+                          <button
+                            onClick={() => setActiveTab('map')}
+                            className="flex-1 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 text-xs font-extrabold text-center flex items-center justify-center gap-2 shadow-lg shadow-brand-500/20"
+                          >
+                            <i data-lucide="map" className="w-4 h-4"></i>
+                            View on Map
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="glass-panel rounded-3xl p-12 text-center text-slate-500 border border-slate-800">
+                        <i data-lucide="mouse-pointer-click" className="w-10 h-10 mx-auto mb-3 opacity-40"></i>
+                        <p className="text-sm">Select a facility from the left list to view detailed AI reasoning and time slots.</p>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+
+              </div>
+            )}
+
+            {/* ==========================================================================
+               3. INTERACTIVE HEALTHCARE MAP & DESERT LAYER
+               ========================================================================== */}
+            {activeTab === 'map' && (
+              <div className="h-full flex flex-col p-4 lg:p-6 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+                  <div>
+                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                      <i data-lucide="map" className="w-5 h-5 text-cyan-400"></i>
+                      Interactive Healthcare Access & Desert Grid (Bengaluru)
+                    </h1>
+                    <p className="text-xs text-slate-400">Leaflet + OpenStreetMap engine showing real facilities and underserved clusters</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-brand-400"></span> Hospital
+                    </span>
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span> Emergency
+                    </span>
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300">
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Desert Cluster
+                    </span>
+                  </div>
+                </div>
+
+                {/* Map Container Element */}
+                <div className="flex-1 rounded-2xl overflow-hidden border border-slate-800 relative min-h-[500px]">
+                  <LeafletMapComponent facilities={BANGALORE_FACILITIES} desertClusters={DESERT_CLUSTERS} />
+                </div>
+              </div>
+            )}
+
+            {/* ==========================================================================
+               4. EMERGENCY MODE (108 / TRAUMA Triage)
+               ========================================================================== */}
+            {activeTab === 'emergency' && (
+              <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+                
+                {/* Alert Top Header */}
+                <div className="bg-red-950/80 border-2 border-red-600 rounded-3xl p-6 lg:p-8 space-y-6 shadow-2xl relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-red-600 flex items-center justify-center text-white animate-bounce shadow-lg shadow-red-600/50">
+                        <i data-lucide="siren" className="w-7 h-7"></i>
+                      </div>
+                      <div>
+                        <h1 className="text-2xl font-black text-white uppercase tracking-wide">Emergency Triage Activated</h1>
+                        <p className="text-xs text-red-200">Rapid dispatch and nearest trauma center calculator for Bengaluru</p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setEmergencyActive(false)}
+                      className="text-xs text-slate-400 hover:text-white bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800"
+                    >
+                      Exit Mode
+                    </button>
+                  </div>
+
+                  {/* Disclaimer Banner */}
+                  <div className="bg-slate-950/90 p-3.5 rounded-2xl border border-red-500/40 text-xs text-red-300 flex items-center gap-3">
+                    <i data-lucide="shield-alert" className="w-5 h-5 text-red-400 shrink-0"></i>
+                    <span>
+                      <strong>IMPORTANT DISCLAIMER:</strong> CareLink AI assists with navigation triage. In severe life-threatening emergencies, call <strong>108 (Ambulance)</strong> or <strong>112</strong> immediately.
+                    </span>
+                  </div>
+
+                  {/* Actions Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <a
+                      href="tel:108"
+                      className="py-4 px-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-extrabold text-sm text-center flex items-center justify-center gap-2 shadow-xl shadow-red-600/40"
+                    >
+                      <i data-lucide="phone-call" className="w-5 h-5"></i>
+                      CALL 108 AMBULANCE
+                    </a>
+
+                    <button
+                      onClick={() => alert("SOS Emergency Location broadcasted to family members and St. John's ER Triage desk.")}
+                      className="py-4 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-red-400 border border-red-500/50 font-bold text-xs text-center flex items-center justify-center gap-2"
+                    >
+                      <i data-lucide="share-2" className="w-4 h-4"></i>
+                      SHARE GPS WITH FAMILY
+                    </button>
+
+                    <button
+                      onClick={() => alert("108 Driver Triage Token generated: #108-BLR-9921")}
+                      className="py-4 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs text-center flex items-center justify-center gap-2"
+                    >
+                      <i data-lucide="navigation" className="w-4 h-4 text-teal-400"></i>
+                      NAVIGATE TO ER
+                    </button>
+
+                    <a
+                      href="tel:112"
+                      className="py-4 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 font-bold text-xs text-center flex items-center justify-center gap-2"
+                    >
+                      <i data-lucide="shield" className="w-4 h-4 text-cyan-400"></i>
+                      CALL 112 HELPLINE
+                    </a>
+                  </div>
+                </div>
+
+                {/* Fastest Recommended Trauma ER Facilities */}
+                <div className="space-y-4">
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="zap" className="w-5 h-5 text-amber-400"></i>
+                    Fastest Trauma Centers (Ranked by Total Arrival + Triage Time)
+                  </h2>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {BANGALORE_FACILITIES.filter(f => f.emergencyReady).slice(0, 2).map((fac, idx) => (
+                      <div key={fac.id} className="glass-panel rounded-2xl p-6 border border-slate-800 space-y-4">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded border border-emerald-500/20">
+                              RECOMMENDED ER #{idx + 1}
+                            </span>
+                            <h3 className="font-bold text-lg text-white mt-1">{fac.name}</h3>
+                            <p className="text-xs text-slate-400">{fac.address}</p>
+                          </div>
+                          <div className="text-right">
+                            <span className="text-xl font-extrabold text-brand-400 font-mono">{fac.travelTimeMins + 5}m</span>
+                            <span className="text-[10px] text-slate-500 block">Total Est. Triage Time</span>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs bg-slate-900 p-3 rounded-xl border border-slate-800">
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">Travel Time:</span>
+                            <span className="font-bold text-slate-200">{fac.travelTimeMins} mins</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-500 block text-[10px]">ER Queue Wait:</span>
+                            <span className="font-bold text-teal-400">{fac.predictedWaitMins} mins</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* ==========================================================================
+               5. MOBILE CLINICS DISCOVERY
+               ========================================================================== */}
+            {activeTab === 'mobile-clinics' && (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="truck" className="w-6 h-6 text-brand-400"></i>
+                    Mobile Healthcare Camps & Rural Outreach
+                  </h1>
+                  <p className="text-xs text-slate-400 mt-1">Free preventative camps and mobile clinic units deployed in Bengaluru rural & underserved zones</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {MOBILE_CAMPS.map((camp) => (
+                    <div key={camp.id} className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4 flex flex-col justify-between">
+                      <div className="space-y-3">
+                        <span className="bg-brand-500/10 text-brand-300 border border-brand-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full inline-block">
+                          {camp.status}
+                        </span>
+                        <h3 className="font-bold text-base text-white">{camp.title}</h3>
+                        
+                        <div className="space-y-1.5 text-xs text-slate-300">
+                          <p className="flex items-center gap-2"><i data-lucide="map-pin" className="w-4 h-4 text-slate-500 shrink-0"></i> {camp.location}</p>
+                          <p className="flex items-center gap-2"><i data-lucide="calendar" className="w-4 h-4 text-teal-400 shrink-0"></i> {camp.date}</p>
+                          <p className="flex items-center gap-2"><i data-lucide="clock" className="w-4 h-4 text-cyan-400 shrink-0"></i> {camp.time}</p>
+                          <p className="flex items-center gap-2"><i data-lucide="users" className="w-4 h-4 text-amber-400 shrink-0"></i> Target: {camp.popServed}</p>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-800">
+                          <span className="text-[10px] font-semibold text-slate-400 uppercase block mb-1">Services Offered:</span>
+                          <div className="flex flex-wrap gap-1">
+                            {camp.services.map((s, i) => (
+                              <span key={i} className="bg-slate-900 text-slate-300 text-[10px] px-2 py-0.5 rounded border border-slate-800">
+                                {s}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => alert(`Registered for ${camp.title}. QR pass sent via SMS!`)}
+                        className="w-full py-2.5 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs transition-colors shadow-lg shadow-brand-500/20"
+                      >
+                        Register Free Pass
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ==========================================================================
+               6. APPOINTMENTS & VISITS PLANNER
+               ========================================================================== */}
+            {activeTab === 'appointments' && (
+              <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                      <i data-lucide="calendar" className="w-6 h-6 text-brand-400"></i>
+                      Visits & Digital Token Passes
+                    </h1>
+                    <p className="text-xs text-slate-400 mt-1">Manage scheduled hospital appointments and queue bypass tokens</p>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('find-care')}
+                    className="px-4 py-2 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/20"
+                  >
+                    + Book New Visit
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {appointments.map((apt) => (
+                    <div key={apt.id} className="glass-panel rounded-3xl p-6 border border-slate-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded">
+                            {apt.status}
+                          </span>
+                          <span className="text-xs font-mono text-slate-400">Pass Token: {apt.id}</span>
+                        </div>
+                        <h3 className="text-lg font-bold text-white">{apt.facilityName}</h3>
+                        <p className="text-xs text-brand-300 font-medium">{apt.doctorName}</p>
+                        <p className="text-xs text-slate-400 flex items-center gap-3 pt-1">
+                          <span><i data-lucide="clock" className="w-3.5 h-3.5 inline mr-1 text-teal-400"></i>{apt.timeSlot}</span>
+                          <span><i data-lucide="user" className="w-3.5 h-3.5 inline mr-1 text-cyan-400"></i>Patient: {apt.patientName}</span>
+                        </p>
+                      </div>
+
+                      {/* Mock QR Code Badge */}
+                      <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 flex items-center gap-4 shrink-0">
+                        <div className="w-16 h-16 bg-white p-1 rounded-lg flex items-center justify-center">
+                          <i data-lucide="qr-code" className="w-14 h-14 text-slate-950"></i>
+                        </div>
+                        <div className="text-xs">
+                          <span className="text-[10px] text-slate-500 uppercase block">Scan at reception desk</span>
+                          <span className="font-mono font-bold text-slate-200">{apt.qrCodeVal}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ==========================================================================
+               7. FAMILY HEALTHCARE ACCESS PROFILES
+               ========================================================================== */}
+            {activeTab === 'family' && (
+              <div className="max-w-5xl mx-auto px-4 py-8 space-y-8">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="users" className="w-6 h-6 text-brand-400"></i>
+                    Family Healthcare Profiles
+                  </h1>
+                  <p className="text-xs text-slate-400 mt-1">Configure personalized mobility, age, and insurance rules for family members</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    { id: 'father', name: 'Ramesh (Father)', age: 68, relation: 'Senior Parent', mobility: 'Wheelchair Required', insurance: 'Star Health Senior' },
+                    { id: 'self', name: 'Aditya (Self)', age: 34, relation: 'Primary Account', mobility: 'Fully Ambulatory', insurance: 'Corporate Health Cover' },
+                    { id: 'child', name: 'Ananya (Daughter)', age: 6, relation: 'Pediatric Profile', mobility: 'Pediatric Care', insurance: 'Family Floater' }
+                  ].map((member) => {
+                    const isActive = activeFamilyMember.id === member.id;
+
+                    return (
+                      <div
+                        key={member.id}
+                        onClick={() => setActiveFamilyMember(member)}
+                        className={`glass-panel rounded-3xl p-6 border cursor-pointer transition-all space-y-4 ${
+                          isActive 
+                            ? 'border-brand-500 bg-slate-900/90 ring-2 ring-brand-500/30' 
+                            : 'border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="w-12 h-12 rounded-2xl bg-slate-800 flex items-center justify-center text-brand-400 font-bold text-lg">
+                            {member.name.charAt(0)}
+                          </div>
+                          {isActive && (
+                            <span className="bg-brand-500 text-slate-950 font-bold text-[10px] px-2.5 py-0.5 rounded-full">
+                              ACTIVE PROFILE
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <h3 className="font-bold text-base text-white">{member.name}</h3>
+                          <p className="text-xs text-slate-400">{member.relation} • Age {member.age}</p>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                          <p><strong className="text-slate-500">Mobility:</strong> {member.mobility}</p>
+                          <p><strong className="text-slate-500">Insurance:</strong> {member.insurance}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* ==========================================================================
+               8. CARE LINK AI COPILOT CHAT VIEW
+               ========================================================================== */}
+            {activeTab === 'copilot' && (
+              <div className="max-w-4xl mx-auto px-4 py-6 h-full flex flex-col">
+                <div className="border-b border-slate-800 pb-4 mb-4 shrink-0 flex items-center justify-between">
+                  <div>
+                    <h1 className="text-xl font-bold text-white flex items-center gap-2">
+                      <i data-lucide="bot" className="w-5 h-5 text-brand-400"></i>
+                      CareLink AI Triage & Navigation Assistant
+                    </h1>
+                    <p className="text-xs text-slate-400">Grounded in live Bangalore dataset • Strictly non-diagnostic navigation</p>
+                  </div>
+                  <span className="bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[10px] font-bold px-2.5 py-1 rounded-full">
+                    Powered by Gemini 3 Flash
+                  </span>
+                </div>
+
+                {/* Messages Chat List */}
+                <div className="flex-1 overflow-y-auto space-y-4 pr-2 custom-scrollbar min-h-[350px]">
+                  {copilotMessages.map((msg, idx) => (
+                    <div
+                      key={idx}
+                      className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div
+                        className={`max-w-[85%] rounded-2xl p-4 text-xs leading-relaxed ${
+                          msg.sender === 'user'
+                            ? 'bg-brand-600 text-white rounded-br-none shadow-lg shadow-brand-600/20'
+                            : 'glass-panel text-slate-200 border border-slate-800 rounded-bl-none whitespace-pre-line'
+                        }`}
+                      >
+                        {msg.text}
+                      </div>
+                    </div>
+                  ))}
+
+                  {isCopilotThinking && (
+                    <div className="flex justify-start">
+                      <div className="glass-panel p-4 rounded-2xl text-xs text-brand-300 border border-slate-800 flex items-center gap-2">
+                        <i data-lucide="loader-2" className="w-4 h-4 animate-spin text-brand-400"></i>
+                        CareLink AI is calculating Bangalore traffic & ER wait queues...
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Chat Input Footer */}
+                <div className="pt-4 border-t border-slate-800 shrink-0 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={copilotInput}
+                      onChange={(e) => setCopilotInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSendCopilot()}
+                      placeholder="Ask CareLink AI: 'Why did you recommend St. Johns over Apollo?'..."
+                      className="flex-1 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-500"
+                    />
+                    <button
+                      onClick={() => handleSendCopilot()}
+                      className="px-5 py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-xs shadow-lg shadow-brand-500/20"
+                    >
+                      Send
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ==========================================================================
+               9. HEALTHCARE ACCESS ANALYTICS
+               ========================================================================== */}
+            {activeTab === 'analytics' && (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                <div>
+                  <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+                    <i data-lucide="line-chart" className="w-6 h-6 text-brand-400"></i>
+                    Healthcare Access Analytics & Trends
+                  </h1>
+                  <p className="text-xs text-slate-400 mt-1">Aggregated grid metrics for Bengaluru urban and peri-urban zones</p>
+                </div>
+
+                {/* Recharts Analytics Cards Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  
+                  {/* Chart 1: Travel vs Wait Time Trade-off */}
+                  <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <i data-lucide="clock" className="w-4 h-4 text-teal-400"></i>
+                      Travel Time vs Predicted ER Queue Wait Time
+                    </h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={BANGALORE_FACILITIES.slice(0, 5)}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                          <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                          <YAxis tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
+                          <Bar dataKey="travelTimeMins" name="Drive Time (mins)" fill="#0ea5e9" radius={[4, 4, 0, 0]} />
+                          <Bar dataKey="predictedWaitMins" name="Predicted Wait (mins)" fill="#14b8a6" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Chart 2: Accessibility Score Comparison */}
+                  <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4">
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <i data-lucide="accessibility" className="w-4 h-4 text-cyan-400"></i>
+                      Facility Accessibility Score (Out of 100)
+                    </h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={BANGALORE_FACILITIES.slice(0, 6)}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                          <XAxis dataKey="name" tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                          <YAxis domain={[0, 100]} tick={{ fill: '#94a3b8', fontSize: 10 }} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155' }} />
+                          <Area type="monotone" dataKey="accessibilityScore" stroke="#2dd4bf" fill="#134e4a" fillOpacity={0.6} />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            )}
+
+            {/* ==========================================================================
+               10. B2B ADMIN PROVIDER DASHBOARD VIEW
+               ========================================================================== */}
+            {activeTab === 'admin' && (
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                <div className="bg-cyan-950/40 border border-cyan-500/30 rounded-3xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">
+                      B2B SaaS Hospital Desk
+                    </span>
+                    <h1 className="text-2xl font-extrabold text-white mt-1">CareLink Provider Live Console</h1>
+                    <p className="text-xs text-slate-300">Update real-time ER queue estimates, bed occupancy, and mobile camp schedules</p>
+                  </div>
+
+                  <button
+                    onClick={() => alert("Changes published live to CareLink AI Bangalore Grid.")}
+                    className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-cyan-500/20"
+                  >
+                    Publish Grid Updates
+                  </button>
+                </div>
+
+                {/* Live Management Table */}
+                <div className="glass-panel rounded-3xl p-6 border border-slate-800 space-y-4 overflow-x-auto">
+                  <h3 className="font-bold text-base text-white">Live Facility Status Controls</h3>
+
+                  <table className="w-full text-left text-xs text-slate-300">
+                    <thead className="bg-slate-900 text-slate-400 font-semibold border-b border-slate-800">
+                      <tr>
+                        <th className="p-3">Facility Name</th>
+                        <th className="p-3">Occupancy</th>
+                        <th className="p-3">Current Wait</th>
+                        <th className="p-3">AI Predicted Wait</th>
+                        <th className="p-3">ER Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {facilityDataset.map((f) => (
+                        <tr key={f.id} className="hover:bg-slate-900/50">
+                          <td className="p-3 font-bold text-white">{f.name}</td>
+                          <td className="p-3">
+                            <span className="font-mono text-cyan-400">{f.capacityPercent}%</span>
+                          </td>
+                          <td className="p-3 font-mono text-amber-400">{f.currentWaitMins} mins</td>
+                          <td className="p-3 font-mono text-teal-400">{f.predictedWaitMins} mins</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              f.emergencyReady ? 'bg-emerald-500/20 text-emerald-300' : 'bg-slate-800 text-slate-400'
+                            }`}>
+                              {f.emergencyReady ? '24/7 Active' : 'Standard'}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* ==========================================================================
+             BOOKING CONFIRMATION MODAL
+             ========================================================================== */}
+          {showBookingModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+              <div className="glass-panel max-w-md w-full rounded-3xl p-6 border border-slate-800 space-y-6">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                  <h3 className="font-bold text-lg text-white">Confirm Visit Slot</h3>
+                  <button onClick={() => setShowBookingModal(false)} className="text-slate-400 hover:text-white">✕</button>
+                </div>
+
+                <div className="space-y-2 text-xs text-slate-300">
+                  <p><strong className="text-slate-400">Facility:</strong> {selectedFacility?.name}</p>
+                  <p><strong className="text-slate-400">Slot Time:</strong> {selectedSlot}</p>
+                  <p><strong className="text-slate-400">Patient:</strong> {activeFamilyMember.name}</p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    const newApt = {
+                      id: `APT-${Math.floor(1000 + Math.random() * 9000)}`,
+                      facilityName: selectedFacility?.name,
+                      doctorName: 'Triage Assigned Specialist',
+                      timeSlot: selectedSlot,
+                      patientName: activeFamilyMember.name,
+                      status: 'Confirmed',
+                      qrCodeVal: `CARE-${Math.floor(1000 + Math.random() * 9000)}`
+                    };
+                    setAppointments([newApt, ...appointments]);
+                    setShowBookingModal(false);
+                    setActiveTab('appointments');
+                  }}
+                  className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-400 text-slate-950 font-extrabold text-xs shadow-lg shadow-brand-500/20"
+                >
+                  Confirm & Generate Digital Pass
+                </button>
+              </div>
+            </div>
+          )}
+
+        </div>
+      );
+    }
+
+    /* ==========================================================================
+       LEAFLET MAP REACT COMPONENT
+       ========================================================================== */
+    function LeafletMapComponent({ facilities, desertClusters }) {
+      const mapRef = useRef(null);
+      const leafletInstance = useRef(null);
+
+      useEffect(() => {
+        if (!mapRef.current) return;
+
+        // Initialize Leaflet map centered on Bangalore (12.9716, 77.5946)
+        if (!leafletInstance.current) {
+          const map = L.map(mapRef.current).setView([12.9352, 77.6245], 11);
+          
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+          }).addTo(map);
+
+          // Dark overlay tile style
+          map.getPane('tilePane').classList.add('dark-tiles');
+
+          leafletInstance.current = map;
+        }
+
+        const map = leafletInstance.current;
+
+        // Add facility pins
+        facilities.forEach((fac) => {
+          const marker = L.circleMarker([fac.lat, fac.lng], {
+            radius: 9,
+            fillColor: fac.emergencyReady ? '#ef4444' : '#14b8a6',
+            color: '#ffffff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.9
+          }).addTo(map);
+
+          marker.bindPopup(`
+            <div style="color: #0f172a; font-family: sans-serif; padding: 4px;">
+              <strong style="font-size: 13px;">${fac.name}</strong><br/>
+              <span style="font-size: 11px; color: #475569;">${fac.category}</span><br/>
+              <span style="font-size: 11px; color: #0d9488; font-weight: bold;">Est. Wait: ${fac.predictedWaitMins} mins</span>
+            </div>
+          `);
+        });
+
+        // Add desert cluster highlight circles
+        desertClusters.forEach((cluster) => {
+          L.circle([cluster.lat, cluster.lng], {
+            color: cluster.color,
+            fillColor: cluster.color,
+            fillOpacity: 0.2,
+            radius: 3000
+          }).addTo(map).bindPopup(`
+            <div style="color: #0f172a; font-family: sans-serif;">
+              <strong style="color: #b91c1c;">${cluster.name}</strong><br/>
+              <span style="font-size: 11px;">Access Score: <strong>${cluster.accessScore}/100</strong> (${cluster.priority})</span><br/>
+              <p style="font-size: 10px; color: #334155; margin-top: 4px;">${cluster.primaryDeficit}</p>
+            </div>
+          `);
+        });
+
+      }, [facilities, desertClusters]);
+
+      return <div ref={mapRef} className="w-full h-full min-h-[500px] z-10"></div>;
+    }
+
+    // Render App
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
