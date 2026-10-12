@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CareLink AI — Intelligent Healthcare Access Network</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#ecfdf5',
+                            100: '#d1fae5',
+                            200: '#a7f3d0',
+                            300: '#6ee7b7',
+                            400: '#34d399',
+                            500: '#10b981', // Main Vibrant Emerald
+                            600: '#059669',
+                            700: '#047857',
+                            800: '#065f46',
+                            900: '#064e3b',
+                            950: '#022c22'
+                        },
+                        dark: {
+                            bg: '#050c0a',       // Deep emerald tinted dark background
+                            card: '#0b1915',     // Elevated card background
+                            border: '#15332b',   // Border highlight
+                            subtle: '#1d4238'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #050c0a;
+            color: #f3f4f6;
+        }
+
+        /* Glassmorphism & Emerald Glow effects */
+        .glass-panel {
+            background: rgba(11, 25, 21, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(52, 211, 153, 0.15);
+        }
+
+        .glass-panel-hover:hover {
+            border-color: rgba(52, 211, 153, 0.4);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.15);
+        }
+
+        .emerald-glow {
+            box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.25);
+        }
+
+        .emerald-glow-text {
+            text-shadow: 0 0 12px rgba(52, 211, 153, 0.4);
+        }
+
+        .leaflet-container {
+            width: 100%;
+            height: 100%;
+            border-radius: 0.75rem;
+            background: #091411 !important;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #050c0a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #15332b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #10b981;
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.03); }
+        }
+        .emergency-pulse {
+            animation: pulseGlow 1.8s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="h-full bg-dark-bg text-gray-100 flex flex-col min-h-screen selection:bg-brand-500 selection:text-black">
+
+    <!-- Navigation Header -->
+    <header class="sticky top-0 z-40 glass-panel border-b border-dark-border px-4 lg:px-8 py-3.5 flex items-center justify-between">
+        <div class="flex items-center gap-8">
+            <!-- Logo -->
+            <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('home')">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-400 to-brand-700 flex items-center justify-center text-black font-extrabold text-xl shadow-lg shadow-brand-500/20">
+                    <i data-lucide="activity" class="w-6 h-6 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl font-bold tracking-tight text-white">Care<span class="text-brand-400">Link</span></span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-brand-500/20 text-brand-300 border border-brand-500/30">AI</span>
+                    </div>
+                    <span class="text-[11px] text-gray-400 block tracking-wide">Know where to go. Get care faster.</span>
+                </div>
+            </div>
+
+            <!-- Main Nav Tabs -->
+            <nav class="hidden lg:flex items-center gap-1 bg-dark-bg/60 p-1 rounded-xl border border-dark-border">
+                <button onclick="switchTab('home')" id="nav-home" class="px-3.5 py-1.5 rounded-lg text-xs font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 transition-all flex items-center gap-2">
+                    <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i> Home
+                </button>
+                <button onclick="switchTab('navigator')" id="nav-navigator" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                    <i data-lucide="bot" class="w-3.5 h-3.5"></i> AI Navigator
+                </button>
+                <button onclick="switchTab('finder')" id="nav-finder" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                    <i data-lucide="search" class="w-3.5 h-3.5"></i> Care Finder
+                </button>
+                <button onclick="switchTab('podium')" id="nav-podium" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                    <i data-lucide="trophy" class="w-3.5 h-3.5"></i> AI Podiums
+                </button>
+                <button onclick="switchTab('map')" id="nav-map" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                    <i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Interactive Map
+                </button>
+                <button onclick="switchTab('mobile-clinics')" id="nav-mobile-clinics" class="px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-all flex items-center gap-2">
+                    <i data-lucide="truck" class="w-3.5 h-3.5"></i> Mobile Clinics
+                </button>
+            </nav>
+        </div>
+
+        <!-- Right Header Actions -->
+        <div class="flex items-center gap-3">
+            <!-- Active Profile Indicator -->
+            <button onclick="switchTab('family')" class="hidden sm:flex items-center gap-2.5 px-3 py-1.5 rounded-xl bg-dark-card border border-dark-border hover:border-brand-500/40 transition-all">
+                <div class="w-6 h-6 rounded-full bg-brand-500/20 text-brand-300 flex items-center justify-center text-xs font-bold" id="header-avatar">P</div>
+                <div class="text-left">
+                    <span class="text-[10px] text-gray-400 block leading-none">Family Profile</span>
+                    <span class="text-xs font-semibold text-white leading-tight" id="header-profile-name">Parent (Self)</span>
+                </div>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400"></i>
+            </button>
+
+            <!-- Emergency Trigger Button -->
+            <button onclick="toggleEmergencyModal()" class="emergency-pulse flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-600 to-emerald-600 hover:from-red-500 hover:to-emerald-500 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-900/30 transition-all">
+                <i data-lucide="siren" class="w-4 h-4 animate-bounce"></i>
+                <span>EMERGENCY SOS</span>
+            </button>
+
+            <!-- Settings / Profile Toggle -->
+            <button onclick="switchTab('profile')" class="p-2 rounded-xl bg-dark-card border border-dark-border text-gray-300 hover:text-brand-300 hover:border-brand-500/30 transition-all">
+                <i data-lucide="sliders" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 space-y-8">
+
+        <!-- ================= TAB 1: SMART HOME OVERVIEW ================= -->
+        <div id="tab-home" class="space-y-8">
+            <!-- AI Natural Language Hero Prompt -->
+            <div class="relative rounded-3xl bg-gradient-to-br from-dark-card via-dark-bg to-dark-card border border-dark-border p-6 lg:p-10 overflow-hidden shadow-2xl emerald-glow">
+                <div class="absolute -right-16 -top-16 w-80 h-80 rounded-full bg-brand-500/10 blur-3xl pointer-events-none"></div>
+                
+                <div class="max-w-3xl space-y-4 relative z-10">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-mono">
+                        <span class="w-2 h-2 rounded-full bg-brand-400 animate-ping"></span>
+                        CareLink Neural Routing System Active
+                    </div>
+                    <h1 class="text-3xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
+                        What healthcare do you <span class="text-transparent bg-clip-text bg-gradient-to-r from-brand-300 via-brand-400 to-emerald-500 emerald-glow-text">need right now?</span>
+                    </h1>
+                    <p class="text-sm lg:text-base text-gray-400 max-w-xl">
+                        CareLink uses real-time capacity, travel times, and AI queue prediction to direct you to the optimal facility instantly.
+                    </p>
+
+                    <!-- Natural Language Search Bar -->
+                    <div class="pt-2">
+                        <div class="relative flex items-center bg-dark-bg/90 border border-dark-border focus-within:border-brand-500 rounded-2xl p-2 shadow-2xl transition-all">
+                            <i data-lucide="sparkles" class="w-5 h-5 text-brand-400 ml-3 flex-shrink-0"></i>
+                            <input type="text" id="home-natural-search" placeholder="e.g. 'Father has severe stomach ache, need urgent care with low wait time'" class="w-full bg-transparent border-0 px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none">
+                            <button onclick="handleHomeSearch()" class="px-6 py-3 bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-400 hover:to-brand-500 text-black font-bold rounded-xl text-xs transition-all flex items-center gap-2 shadow-lg shadow-brand-500/20">
+                                <span>Find Optimal Care</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Quick Action Chips -->
+                    <div class="flex flex-wrap gap-2 pt-2">
+                        <span class="text-xs text-gray-400 self-center mr-1">Quick actions:</span>
+                        <button onclick="quickSearchCategory('Emergency')" class="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300 hover:text-brand-300 hover:border-brand-500/30 transition-all flex items-center gap-1.5">
+                            <i data-lucide="siren" class="w-3.5 h-3.5 text-red-400"></i> Emergency
+                        </button>
+                        <button onclick="quickSearchCategory('Urgent Care')" class="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300 hover:text-brand-300 hover:border-brand-500/30 transition-all flex items-center gap-1.5">
+                            <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-400"></i> Urgent Care
+                        </button>
+                        <button onclick="quickSearchCategory('Diagnostics')" class="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300 hover:text-brand-300 hover:border-brand-500/30 transition-all flex items-center gap-1.5">
+                            <i data-lucide="microscope" class="w-3.5 h-3.5 text-brand-400"></i> Diagnostics & Labs
+                        </button>
+                        <button onclick="quickSearchCategory('Pharmacy')" class="px-3 py-1.5 rounded-lg bg-dark-card border border-dark-border text-xs text-gray-300 hover:text-brand-300 hover:border-brand-500/30 transition-all flex items-center gap-1.5">
+                            <i data-lucide="pill" class="w-3.5 h-3.5 text-emerald-400"></i> 24/7 Pharmacy
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top AI Recommendations Spotlight (Podium Summary) -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-mono text-brand-400 uppercase tracking-widest block">AI Match Ranking</span>
+                        <h2 class="text-2xl font-bold text-white">Recommended Facilities for You</h2>
+                    </div>
+                    <button onclick="switchTab('podium')" class="text-xs font-semibold text-brand-400 hover:text-brand-300 flex items-center gap-1">
+                        View Full Analysis <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="home-recommendations-grid">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- 13 Core Modules Quick Matrix -->
+            <div class="space-y-4">
+                <h3 class="text-xl font-bold text-white">Platform Services Matrix</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div onclick="switchTab('navigator')" class="glass-panel p-4 rounded-2xl glass-panel-hover cursor-pointer space-y-2">
+                        <div class="w-9 h-9 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center">
+                            <i data-lucide="bot" class="w-5 h-5"></i>
+                        </div>
+                        <h4 class="font-semibold text-white text-sm">AI Navigator</h4>
+                        <p class="text-xs text-gray-400">Natural language clinical routing.</p>
+                    </div>
+                    <div onclick="switchTab('map')" class="glass-panel p-4 rounded-2xl glass-panel-hover cursor-pointer space-y-2">
+                        <div class="w-9 h-9 rounded-xl bg-brand-500/20 text-brand-400 flex items-center justify-center">
+                            <i data-lucide="map" class="w-5 h-5"></i>
+                        </div>
+                        <h4 class="font-semibold text-white text-sm">Interactive Map</h4>
+                        <p class="text-xs text-gray-400">Real-time capacity overlays.</p>
+                    </div>
+                    <div onclick="switchTab('desert')" class="glass-panel p-4 rounded-2xl glass-panel-hover cursor-pointer space-y-2">
+                        <div class="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+                        </div>
+                        <h4 class="font-semibold text-white text-sm">Care Deserts</h4>
+                        <p class="text-xs text-gray-400">Underserved zone detector.</p>
+                    </div>
+                    <div onclick="switchTab('mobile-clinics')" class="glass-panel p-4 rounded-2xl glass-panel-hover cursor-pointer space-y-2">
+                        <div class="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <i data-lucide="truck" class="w-5 h-5"></i>
+                        </div>
+                        <h4 class="font-semibold text-white text-sm">Mobile Clinics</h4>
+                        <p class="text-xs text-gray-400">Pop-up rural health camps.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 2: AI HEALTHCARE NAVIGATOR ================= -->
+        <div id="tab-navigator" class="hidden space-y-6">
+            <div class="glass-panel rounded-3xl p-6 lg:p-8 flex flex-col h-[78vh] shadow-2xl relative overflow-hidden">
+                <!-- Chat Header -->
+                <div class="flex items-center justify-between pb-4 border-b border-dark-border">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-brand-500/20 border border-brand-500/30 text-brand-300 flex items-center justify-center font-bold">
+                            <i data-lucide="bot" class="w-6 h-6"></i>
+                        </div>
+                        <div>
+                            <h2 class="font-bold text-white text-lg">CareLink AI Healthcare Navigator</h2>
+                            <p class="text-xs text-gray-400 font-mono">Triage Engine v3.2 • Non-Diagnostic Routing</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-[11px] font-mono">AI Active</span>
+                        <button onclick="resetChat()" class="px-3 py-1.5 text-xs bg-dark-bg border border-dark-border hover:border-brand-500/30 text-gray-300 rounded-xl transition-all">Clear Chat</button>
+                    </div>
+                </div>
+
+                <!-- Non-diagnostic safety banner -->
+                <div class="my-3 px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2">
+                    <i data-lucide="shield-alert" class="w-4 h-4 flex-shrink-0"></i>
+                    <span><strong>Disclaimer:</strong> CareLink AI helps navigate to suitable facilities and does NOT provide medical diagnoses. For life-threatening emergencies, tap SOS.</span>
+                </div>
+
+                <!-- Chat Stream -->
+                <div id="chat-messages" class="flex-1 overflow-y-auto py-4 space-y-4 pr-2">
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-300 flex items-center justify-center font-bold text-xs flex-shrink-0">AI</div>
+                        <div class="bg-dark-card border border-dark-border p-4 rounded-2xl rounded-tl-none max-w-2xl text-xs lg:text-sm text-gray-200 space-y-2">
+                            <p>Hello! Describe what you or your family member are experiencing, and I will recommend the right type of facility (ER, Urgent Care, Clinic, or Specialist) with predicted wait times.</p>
+                            <div class="flex flex-wrap gap-2 pt-2">
+                                <button onclick="sendQuickPrompt('I need urgent care for my father who has high fever and severe fatigue')" class="px-2.5 py-1.5 rounded-lg bg-dark-bg border border-dark-border hover:border-brand-500/40 text-xs text-brand-300">"Urgent care for father with high fever"</button>
+                                <button onclick="sendQuickPrompt('Where should I go for a quick blood test and X-Ray today?')" class="px-2.5 py-1.5 rounded-lg bg-dark-bg border border-dark-border hover:border-brand-500/40 text-xs text-brand-300">"Diagnostics & X-Ray nearby"</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Box -->
+                <div class="pt-3 border-t border-dark-border flex items-center gap-2">
+                    <input type="text" id="chat-input" placeholder="Describe symptoms or facility needs naturally..." onkeydown="if(event.key==='Enter') handleChatSubmit()" class="flex-1 bg-dark-bg border border-dark-border rounded-xl px-4 py-3 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-brand-500 transition-all">
+                    <button onclick="handleChatSubmit()" class="px-5 py-3 bg-brand-500 hover:bg-brand-400 text-black font-bold rounded-xl text-xs transition-all flex items-center gap-1.5">
+                        <span>Send</span>
+                        <i data-lucide="send" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 3: SMART CARE FINDER ================= -->
+        <div id="tab-finder" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <span class="text-xs font-mono text-brand-400 uppercase tracking-widest block">Multi-Criteria Search</span>
+                    <h2 class="text-3xl font-bold text-white">Smart Care Finder</h2>
+                </div>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="glass-panel p-4 rounded-2xl space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                    <input type="text" id="finder-search" oninput="filterCareFinder()" placeholder="Search facility name or location..." class="bg-dark-bg border border-dark-border rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-brand-500">
+                    <select id="finder-type" onchange="filterCareFinder()" class="bg-dark-bg border border-dark-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+                        <option value="all">All Facility Types</option>
+                        <option value="Emergency">Emergency Rooms</option>
+                        <option value="Urgent Care">Urgent Care</option>
+                        <option value="Government">Government Hospitals</option>
+                        <option value="Diagnostics">Diagnostics & Labs</option>
+                        <option value="Pharmacy">Pharmacies</option>
+                        <option value="Mobile Clinic">Mobile Clinics</option>
+                    </select>
+                    <select id="finder-sort" onchange="filterCareFinder()" class="bg-dark-bg border border-dark-border rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-brand-500">
+                        <option value="recommended">Sort by AI Recommendation</option>
+                        <option value="wait">Sort by Lowest Wait Time</option>
+                        <option value="distance">Sort by Distance</option>
+                        <option value="accessibility">Sort by Accessibility Score</option>
+                    </select>
+                    <button onclick="filterCareFinder()" class="bg-brand-500 hover:bg-brand-400 text-black font-bold rounded-xl text-xs py-2.5 transition-all">Apply Search</button>
+                </div>
+            </div>
+
+            <!-- Care Results Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="finder-results-grid">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+
+        <!-- ================= TAB 4: RECOMMENDATION PODIUMS ================= -->
+        <div id="tab-podium" class="hidden space-y-8">
+            <div class="text-center max-w-2xl mx-auto space-y-2">
+                <span class="text-xs font-mono text-brand-400 uppercase tracking-widest block">Comparative Facility Intelligence</span>
+                <h2 class="text-3xl lg:text-4xl font-extrabold text-white">AI Facility Podiums</h2>
+                <p class="text-xs lg:text-sm text-gray-400">Instead of a plain list, CareLink evaluates current travel, queues, and urgency to present top options.</p>
+            </div>
+
+            <!-- 1st, 2nd, 3rd Podiums -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-end pt-4" id="podiums-container">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+
+        <!-- ================= TAB 5: INTERACTIVE MAP ================= -->
+        <div id="tab-map" class="hidden space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <span class="text-xs font-mono text-brand-400 uppercase tracking-widest block">Spatial Access Overlay</span>
+                    <h2 class="text-3xl font-bold text-white">Interactive Healthcare Map</h2>
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="map-category-filter" onchange="filterMapByCategory()" class="bg-dark-card border border-dark-border rounded-xl px-3 py-2 text-xs text-white">
+                        <option value="all">All Layers</option>
+                        <option value="Emergency">Emergency Rooms</option>
+                        <option value="Urgent Care">Urgent Care</option>
+                        <option value="Diagnostics">Diagnostics</option>
+                        <option value="Mobile Clinic">Mobile Clinics</option>
+                    </select>
+                    <button onclick="recenterMap()" class="px-3 py-2 bg-brand-500/20 border border-brand-500/30 text-brand-300 rounded-xl text-xs font-semibold hover:bg-brand-500/30">My Location</button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[650px]">
+                <div class="lg:col-span-8 glass-panel p-2 rounded-2xl h-full">
+                    <div id="interactive-leaflet-map" class="w-full h-full rounded-xl"></div>
+                </div>
+                <div class="lg:col-span-4 glass-panel p-5 rounded-2xl h-full flex flex-col">
+                    <h3 class="font-bold text-white text-base mb-3">Facility Detail Inspector</h3>
+                    <div id="map-inspector" class="flex-1 overflow-y-auto space-y-4 text-xs text-gray-300">
+                        <div class="text-center text-gray-500 py-12">Click any marker on the map to inspect full clinical telemetry, capacity, and accessibility scores.</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 6: MOBILE CLINICS ================= -->
+        <div id="tab-mobile-clinics" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-mono text-brand-400 uppercase tracking-widest block">Rural & Underserved Outreach</span>
+                    <h2 class="text-3xl font-bold text-white">Mobile Clinic Discovery</h2>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="mobile-clinics-grid">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+
+        <!-- ================= TAB 7: HEALTHCARE DESERTS ================= -->
+        <div id="tab-desert" class="hidden space-y-6">
+            <div>
+                <span class="text-xs font-mono text-amber-400 uppercase tracking-widest block">Underserved Region Analytics</span>
+                <h2 class="text-3xl font-bold text-white">Healthcare Desert Detector</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="desert-clusters-grid">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+
+        <!-- ================= TAB 8: FAMILY PROFILES ================= -->
+        <div id="tab-family" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <span class="text-xs font-mono text-brand-400 uppercase tracking-widest block">Personalization Engine</span>
+                    <h2 class="text-3xl font-bold text-white">Family Healthcare Profiles</h2>
+                </div>
+                <button onclick="openAddFamilyModal()" class="px-4 py-2 bg-brand-500 text-black font-bold rounded-xl text-xs">
+                    + Add Family Member
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6" id="family-profiles-grid">
+                <!-- Populated via JS -->
+            </div>
+        </div>
+
+        <!-- ================= TAB 9: PERSONAL SETTINGS ================= -->
+        <div id="tab-profile" class="hidden space-y-6">
+            <div class="glass-panel p-8 rounded-3xl space-y-6">
+                <h2 class="text-2xl font-bold text-white">Personal Healthcare Profile & Preferences</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+                    <div class="space-y-2">
+                        <label class="text-gray-400">Current Location Anchor</label>
+                        <input type="text" value="San Francisco Central District" class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-white">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-gray-400">Preferred Language</label>
+                        <select class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-white">
+                            <option>English</option>
+                            <option>Spanish</option>
+                            <option>Hindi</option>
+                            <option>Mandarin</option>
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-gray-400">Accessibility Needs</label>
+                        <input type="text" value="Wheelchair access required, Low walk distance" class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-white">
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-gray-400">Insurance Preference</label>
+                        <input type="text" value="Blue Cross Blue Shield PPO" class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-white">
+                    </div>
+                </div>
+                <button onclick="showToast('Preferences updated successfully!')" class="px-6 py-3 bg-brand-500 text-black font-bold rounded-xl text-xs">Save Settings</button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Emergency SOS Modal HUD -->
+    <div id="emergency-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-xl w-full p-6 lg:p-8 rounded-3xl border-2 border-red-500 space-y-6 relative shadow-2xl">
+            <div class="flex items-center justify-between border-b border-dark-border pb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-red-500/20 text-red-500 flex items-center justify-center">
+                        <i data-lucide="siren" class="w-6 h-6 animate-pulse"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white">CareLink Emergency SOS Mode</h3>
+                        <p class="text-xs text-red-400 font-mono">High Priority Triage Triggered</p>
+                    </div>
+                </div>
+                <button onclick="toggleEmergencyModal()" class="text-gray-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Fastest Emergency Facility Recommendation -->
+            <div class="bg-red-950/30 border border-red-500/30 p-4 rounded-2xl space-y-2">
+                <span class="text-[10px] uppercase tracking-wider font-mono text-red-400 font-bold">Fastest Critical Care Facility</span>
+                <div class="flex items-center justify-between">
+                    <h4 class="text-lg font-bold text-white">St. Jude Trauma & Emergency Center</h4>
+                    <span class="px-2.5 py-1 rounded-full bg-red-500/20 text-red-300 text-xs font-bold">ETA: 6 mins</span>
+                </div>
+                <p class="text-xs text-gray-300">Level 1 Trauma Unit • Capacity: Optimal • ER Wait: 3 mins</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="showToast('Calling Emergency Ambulance Services (911)...')" class="p-4 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex flex-col items-center gap-2">
+                    <i data-lucide="phone-call" class="w-6 h-6"></i>
+                    <span>Call 911 Direct</span>
+                </button>
+                <button onclick="showToast('Broadcasting Live GPS Location to Emergency Services & Family...')" class="p-4 rounded-2xl bg-brand-600 hover:bg-brand-500 text-black font-bold text-xs flex flex-col items-center gap-2">
+                    <i data-lucide="share-2" class="w-6 h-6"></i>
+                    <span>Share Live GPS</span>
+                </button>
+            </div>
+
+            <p class="text-[11px] text-gray-400 text-center">CareLink emergency mode does not replace official emergency response services.</p>
+        </div>
+    </div>
+
+    <!-- Appointment Booking Modal -->
+    <div id="booking-modal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-md hidden flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full p-6 rounded-3xl space-y-5">
+            <div class="flex items-center justify-between border-b border-dark-border pb-3">
+                <h3 class="text-lg font-bold text-white">Schedule Visit via CareLink</h3>
+                <button onclick="closeBookingModal()" class="text-gray-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+            </div>
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="text-gray-400 block mb-1">Target Facility</label>
+                    <input type="text" id="booking-facility-name" readonly class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-white font-semibold">
+                </div>
+                <div>
+                    <label class="text-gray-400 block mb-1">Select Time Slot</label>
+                    <select id="booking-timeslot" class="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-white">
+                        <option>Today - 02:30 PM (Predicted Wait: 4 mins)</option>
+                        <option>Today - 04:15 PM (Predicted Wait: 8 mins)</option>
+                        <option>Tomorrow - 09:00 AM (Predicted Wait: 2 mins)</option>
+                    </select>
+                </div>
+            </div>
+            <button onclick="confirmBooking()" class="w-full py-3 bg-brand-500 hover:bg-brand-400 text-black font-bold rounded-xl text-xs">Confirm Appointment</button>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Lucide icons
+        lucide.createIcons();
+
+        // Sample Comprehensive Database
+        const facilitiesData = [
+            {
+                id: "f1",
+                name: "St. Jude Trauma & Emergency Center",
+                type: "Emergency",
+                distance: "1.2 miles",
+                travelTime: "6 mins",
+                currentWait: "3 mins",
+                predictedWait: "5 mins",
+                congestion: "Low",
+                accessibilityScore: 96,
+                capacity: "82% Available",
+                reason: "Fastest travel time with zero critical queue delay for immediate trauma.",
+                lat: 37.7749,
+                lng: -122.4194
+            },
+            {
+                id: "f2",
+                name: "CareLink Express Urgent Care",
+                type: "Urgent Care",
+                distance: "2.4 miles",
+                travelTime: "10 mins",
+                currentWait: "12 mins",
+                predictedWait: "15 mins",
+                congestion: "Moderate",
+                accessibilityScore: 92,
+                capacity: "65% Available",
+                reason: "30 minutes lower wait time than general county hospital for mild fevers.",
+                lat: 37.7649,
+                lng: -122.4294
+            },
+            {
+                id: "f3",
+                name: "San Francisco Government Health Center",
+                type: "Government",
+                distance: "3.1 miles",
+                travelTime: "14 mins",
+                currentWait: "28 mins",
+                predictedWait: "35 mins",
+                congestion: "High",
+                accessibilityScore: 88,
+                capacity: "40% Available",
+                reason: "Fully subsidized care with complete diagnostic suite available.",
+                lat: 37.7849,
+                lng: -122.4094
+            },
+            {
+                id: "f4",
+                name: "Precision Labs & Imaging Pavilion",
+                type: "Diagnostics",
+                distance: "1.8 miles",
+                travelTime: "8 mins",
+                currentWait: "5 mins",
+                predictedWait: "8 mins",
+                congestion: "Low",
+                accessibilityScore: 98,
+                capacity: "90% Available",
+                reason: "Same-day MRI, X-Ray, and blood panel processing with zero queue.",
+                lat: 37.7549,
+                lng: -122.4394
+            }
+        ];
+
+        const mobileClinicsData = [
+            {
+                name: "CareLink Rural Health Bus #04",
+                location: "East Valley Community Square",
+                date: "Saturday, Oct 17",
+                time: "09:00 AM - 02:00 PM",
+                services: "General Health Screening, Blood Pressure, Diabetes & Pediatric Vaccines",
+                served: "Est. 250 residents"
+            },
+            {
+                name: "Mobile Diagnostic Van Alpha",
+                location: "North Suburb Outreach Center",
+                date: "Sunday, Oct 18",
+                time: "10:00 AM - 04:00 PM",
+                services: "Mobile X-Ray, ECG, Dental Checkups",
+                served: "Est. 180 residents"
+            }
+        ];
+
+        const desertClustersData = [
+            { name: "Cluster 07 (East County Rural)", score: 32, priority: "HIGH PRIORITY", pop: "42,000 residents", distanceToER: "28.4 miles" },
+            { name: "Cluster 12 (South Industrial Sector)", score: 45, priority: "MEDIUM PRIORITY", pop: "18,500 residents", distanceToER: "16.1 miles" }
+        ];
+
+        const familyProfilesData = [
+            { name: "Parent (Self)", role: "Primary", age: "38", needs: "None", pref: "Within 5 miles" },
+            { name: "Child (Leo)", role: "Dependent", age: "7", needs: "Pediatric Specialist", pref: "Low wait time" },
+            { name: "Grandparent (Martha)", role: "Senior", age: "72", needs: "Wheelchair Access, Ramp", pref: "Emergency Priority" }
+        ];
+
+        // Tab Navigation Switcher
+        function switchTab(tabId) {
+            const tabs = ['home', 'navigator', 'finder', 'podium', 'map', 'mobile-clinics', 'desert', 'family', 'profile'];
+            tabs.forEach(t => {
+                const el = document.getElementById(`tab-${t}`);
+                const navBtn = document.getElementById(`nav-${t}`);
+                if (el) el.classList.toggle('hidden', t !== tabId);
+                if (navBtn) {
+                    if (t === tabId) {
+                        navBtn.className = "px-3.5 py-1.5 rounded-lg text-xs font-semibold text-brand-300 bg-brand-500/10 border border-brand-500/20 transition-all flex items-center gap-2";
+                    } else {
+                        navBtn.className = "px-3.5 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-white transition-all flex items-center gap-2";
+                    }
+                }
+            });
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            if (tabId === 'map') initLeafletMap();
+        }
+
+        // Render Home Recommendations Podiums Summary
+        function renderHomeRecommendations() {
+            const grid = document.getElementById('home-recommendations-grid');
+            if(!grid) return;
+            const topThree = [facilitiesData[0], facilitiesData[1], facilitiesData[2]];
+            const medals = ['🥇 Best Option', '🥈 Alternative', '🥉 Backup'];
+
+            grid.innerHTML = topThree.map((f, i) => `
+                <div class="glass-panel p-5 rounded-2xl glass-panel-hover space-y-3 relative">
+                    <div class="flex items-center justify-between">
+                        <span class="px-2.5 py-1 rounded-full ${i===0?'bg-brand-500/20 text-brand-300 border border-brand-500/30':'bg-dark-bg text-gray-400 border border-dark-border'} text-xs font-bold font-mono">${medals[i]}</span>
+                        <span class="text-xs font-mono text-brand-400">${f.travelTime} travel</span>
+                    </div>
+                    <h3 class="font-bold text-white text-base">${f.name}</h3>
+                    <p class="text-xs text-gray-400">${f.type} • Wait Time: <strong class="text-brand-300">${f.currentWait}</strong></p>
+                    <div class="p-3 rounded-xl bg-dark-bg/80 border border-dark-border text-xs text-gray-300 space-y-1">
+                        <span class="text-[10px] uppercase font-mono text-brand-400 block font-bold">Why recommended</span>
+                        <p>${f.reason}</p>
+                    </div>
+                    <button onclick="openBookingModal('${f.name}')" class="w-full py-2.5 bg-brand-500 hover:bg-brand-400 text-black font-bold rounded-xl text-xs transition-all">Schedule Visit</button>
+                </div>
+            `).join('');
+        }
+
+        // Render Care Finder Results
+        function renderCareFinderResults(data = facilitiesData) {
+            const grid = document.getElementById('finder-results-grid');
+            if(!grid) return;
+            grid.innerHTML = data.map(f => `
+                <div class="glass-panel p-5 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-300 text-xs font-mono">${f.type}</span>
+                        <span class="text-xs text-gray-400 font-mono">Accessibility: ${f.accessibilityScore}/100</span>
+                    </div>
+                    <h3 class="font-bold text-white text-base">${f.name}</h3>
+                    <div class="grid grid-cols-2 gap-2 text-xs text-gray-300 bg-dark-bg p-3 rounded-xl border border-dark-border">
+                        <div>Est. Travel: <strong class="text-white">${f.travelTime}</strong></div>
+                        <div>Pred. Wait: <strong class="text-brand-300">${f.predictedWait}</strong></div>
+                        <div>Congestion: <strong class="text-emerald-400">${f.congestion}</strong></div>
+                        <div>Capacity: <strong class="text-white">${f.capacity}</strong></div>
+                    </div>
+                    <button onclick="openBookingModal('${f.name}')" class="w-full py-2.5 bg-brand-500/20 border border-brand-500/30 text-brand-300 hover:bg-brand-500 hover:text-black font-bold rounded-xl text-xs transition-all">Book Visit Slot</button>
+                </div>
+            `).join('');
+        }
+
+        // Render Podiums Detailed View
+        function renderPodiumsDetailed() {
+            const container = document.getElementById('podiums-container');
+            if(!container) return;
+            const topThree = [facilitiesData[1], facilitiesData[0], facilitiesData[2]]; // 2nd, 1st, 3rd layout
+            const medals = ['🥈 Alternative', '🥇 Best Option', '🥉 Backup'];
+
+            container.innerHTML = topThree.map((f, idx) => {
+                const isFirst = idx === 1;
+                return `
+                    <div class="glass-panel p-6 rounded-3xl ${isFirst?'border-2 border-brand-500 shadow-2xl emerald-glow md:-translate-y-4':''} space-y-4">
+                        <div class="text-center space-y-1">
+                            <span class="px-3 py-1 rounded-full ${isFirst?'bg-brand-500 text-black font-extrabold':'bg-dark-bg text-gray-400'} text-xs font-mono">${medals[idx]}</span>
+                            <h3 class="font-bold text-white text-lg pt-2">${f.name}</h3>
+                            <span class="text-xs text-gray-400 block">${f.type}</span>
+                        </div>
+                        <div class="space-y-2 text-xs text-gray-300 bg-dark-bg p-4 rounded-2xl border border-dark-border">
+                            <div class="flex justify-between"><span>Predicted Wait</span><strong class="text-brand-300">${f.predictedWait}</strong></div>
+                            <div class="flex justify-between"><span>Travel Distance</span><strong class="text-white">${f.distance} (${f.travelTime})</strong></div>
+                            <div class="flex justify-between"><span>Accessibility Index</span><strong class="text-emerald-400">${f.accessibilityScore}/100</strong></div>
+                        </div>
+                        <div class="p-3 rounded-xl bg-brand-500/10 border border-brand-500/20 text-xs text-brand-300">
+                            <strong>Why Ranked:</strong> ${f.reason}
+                        </div>
+                        <button onclick="openBookingModal('${f.name}')" class="w-full py-3 bg-brand-500 hover:bg-brand-400 text-black font-bold rounded-xl text-xs transition-all">Select This Facility</button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Render Mobile Clinics
+        function renderMobileClinics() {
+            const grid = document.getElementById('mobile-clinics-grid');
+            if(!grid) return;
+            grid.innerHTML = mobileClinicsData.map(mc => `
+                <div class="glass-panel p-6 rounded-2xl space-y-3">
+                    <div class="flex items-center gap-2 text-emerald-400 text-xs font-mono"><i data-lucide="truck" class="w-4 h-4"></i> Mobile Health Unit</div>
+                    <h3 class="font-bold text-white text-base">${mc.name}</h3>
+                    <p class="text-xs text-gray-300"><strong>Location:</strong> ${mc.location}</p>
+                    <p class="text-xs text-gray-300"><strong>Schedule:</strong> ${mc.date} (${mc.time})</p>
+                    <p class="text-xs text-gray-400">${mc.services}</p>
+                    <button onclick="showToast('Registered for Mobile Clinic Camp!')" class="w-full py-2.5 bg-brand-500 text-black font-bold rounded-xl text-xs">Register Free Attendance</button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        // Render Care Deserts
+        function renderDesertClusters() {
+            const grid = document.getElementById('desert-clusters-grid');
+            if(!grid) return;
+            grid.innerHTML = desertClustersData.map(dc => `
+                <div class="glass-panel p-6 rounded-2xl space-y-3 border-l-4 border-amber-500">
+                    <span class="px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 text-[10px] font-mono font-bold">${dc.priority}</span>
+                    <h3 class="font-bold text-white text-base">${dc.name}</h3>
+                    <p class="text-xs text-gray-300">Access Index: <strong class="text-amber-400">${dc.score}/100</strong></p>
+                    <p class="text-xs text-gray-400">${dc.pop} • Nearest ER: ${dc.distanceToER}</p>
+                </div>
+            `).join('');
+        }
+
+        // Render Family Profiles
+        function renderFamilyProfiles() {
+            const grid = document.getElementById('family-profiles-grid');
+            if(!grid) return;
+            grid.innerHTML = familyProfilesData.map(fp => `
+                <div class="glass-panel p-6 rounded-2xl space-y-3">
+                    <div class="flex items-center justify-between">
+                        <h3 class="font-bold text-white text-base">${fp.name}</h3>
+                        <span class="px-2.5 py-1 rounded-full bg-brand-500/10 text-brand-300 text-xs font-mono">${fp.role}</span>
+                    </div>
+                    <p class="text-xs text-gray-300">Age: ${fp.age} • Requirements: ${fp.needs}</p>
+                    <p class="text-xs text-gray-400">Match Preference: ${fp.pref}</p>
+                    <button onclick="setActiveFamilyProfile('${fp.name}')" class="w-full py-2 bg-dark-bg border border-dark-border hover:border-brand-500/40 text-xs text-brand-300 rounded-xl">Switch to Profile</button>
+                </div>
+            `).join('');
+        }
+
+        function setActiveFamilyProfile(name) {
+            document.getElementById('header-profile-name').innerText = name;
+            showToast(`Switched active profile to ${name}. Recommendations personalized.`);
+        }
+
+        // Search and Filters for Care Finder
+        function filterCareFinder() {
+            const query = document.getElementById('finder-search').value.toLowerCase();
+            const type = document.getElementById('finder-type').value;
+            let filtered = facilitiesData.filter(f => {
+                const matchQuery = f.name.toLowerCase().includes(query) || f.type.toLowerCase().includes(query);
+                const matchType = type === 'all' || f.type === type;
+                return matchQuery && matchType;
+            });
+            renderCareFinderResults(filtered);
+        }
+
+        function quickSearchCategory(cat) {
+            switchTab('finder');
+            document.getElementById('finder-type').value = cat;
+            filterCareFinder();
+        }
+
+        function handleHomeSearch() {
+            const val = document.getElementById('home-natural-search').value;
+            if(val) {
+                switchTab('navigator');
+                sendQuickPrompt(val);
+            }
+        }
+
+        // Chatbot logic
+        function sendQuickPrompt(promptText) {
+            document.getElementById('chat-input').value = promptText;
+            handleChatSubmit();
+        }
+
+        function handleChatSubmit() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if(!text) return;
+
+            const container = document.getElementById('chat-messages');
+            container.innerHTML += `
+                <div class="flex items-start gap-3 justify-end">
+                    <div class="bg-brand-500 text-black font-medium p-4 rounded-2xl rounded-tr-none max-w-2xl text-xs lg:text-sm">
+                        ${text}
+                    </div>
+                </div>
+            `;
+            input.value = '';
+            container.scrollTop = container.scrollHeight;
+
+            setTimeout(() => {
+                let reply = "I analyzed your query. Based on current capacity, CareLink Express Urgent Care (10 mins away) has a predicted wait of under 12 minutes.";
+                if(text.toLowerCase().includes('fever') || text.toLowerCase().includes('urgent')) {
+                    reply = "For acute high fever, CareLink Express Urgent Care is currently optimal. Avoid county ER where current wait exceeds 35 minutes.";
+                } else if(text.toLowerCase().includes('x-ray') || text.toLowerCase().includes('test')) {
+                    reply = "Precision Labs & Imaging Pavilion has immediate availability for diagnostics with zero wait time.";
+                }
+
+                container.innerHTML += `
+                    <div class="flex items-start gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-300 flex items-center justify-center font-bold text-xs flex-shrink-0">AI</div>
+                        <div class="bg-dark-card border border-dark-border p-4 rounded-2xl rounded-tl-none max-w-2xl text-xs lg:text-sm text-gray-200 space-y-2">
+                            <p>${reply}</p>
+                            <button onclick="switchTab('podium')" class="px-3 py-1.5 bg-brand-500 text-black font-bold text-xs rounded-xl">View Podiums</button>
+                        </div>
+                    </div>
+                `;
+                container.scrollTop = container.scrollHeight;
+            }, 800);
+        }
+
+        function resetChat() {
+            document.getElementById('chat-messages').innerHTML = `
+                <div class="flex items-start gap-3">
+                    <div class="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-300 flex items-center justify-center font-bold text-xs flex-shrink-0">AI</div>
+                    <div class="bg-dark-card border border-dark-border p-4 rounded-2xl rounded-tl-none max-w-2xl text-xs lg:text-sm text-gray-200">
+                        Chat reset. Describe your healthcare needs naturally.
+                    </div>
+                </div>
+            `;
+        }
+
+        // Leaflet Map Implementation
+        let leafletMap = null;
+        let mapMarkers = [];
+
+        function initLeafletMap() {
+            if(leafletMap) return;
+            leafletMap = L.map('interactive-leaflet-map').setView([37.7749, -122.4194], 13);
+            
+            L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                attribution: '&copy; CARTO',
+                maxZoom: 19
+            }).addTo(leafletMap);
+
+            addMapMarkers(facilitiesData);
+        }
+
+        function addMapMarkers(data) {
+            mapMarkers.forEach(m => leafletMap.removeLayer(m));
+            mapMarkers = [];
+
+            data.forEach(f => {
+                const markerHtml = `<div style="background:#10b981; color:#000; width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-center; font-weight:bold; font-size:11px; border:2px solid #fff; box-shadow:0 0 10px rgba(16,185,129,0.5);">Care</div>`;
+                const customIcon = L.divIcon({ html: markerHtml, className: 'custom-map-icon', iconSize: [28, 28] });
+                const marker = L.marker([f.lat, f.lng], { icon: customIcon }).addTo(leafletMap);
+                
+                marker.on('click', () => {
+                    document.getElementById('map-inspector').innerHTML = `
+                        <div class="p-4 rounded-xl bg-dark-bg border border-brand-500/30 space-y-2">
+                            <span class="px-2 py-0.5 rounded bg-brand-500/20 text-brand-300 text-[10px] font-mono">${f.type}</span>
+                            <h4 class="font-bold text-white text-sm">${f.name}</h4>
+                            <p class="text-xs text-gray-400">Current Wait: <strong class="text-brand-300">${f.currentWait}</strong></p>
+                            <p class="text-xs text-gray-400">Accessibility Score: ${f.accessibilityScore}/100</p>
+                            <button onclick="openBookingModal('${f.name}')" class="w-full py-2 bg-brand-500 text-black font-bold rounded-lg text-xs">Book Appointment</button>
+                        </div>
+                    `;
+                });
+                mapMarkers.push(marker);
+            });
+        }
+
+        function filterMapByCategory() {
+            const cat = document.getElementById('map-category-filter').value;
+            const filtered = cat === 'all' ? facilitiesData : facilitiesData.filter(f => f.type === cat);
+            addMapMarkers(filtered);
+        }
+
+        function recenterMap() {
+            if(leafletMap) leafletMap.setView([37.7749, -122.4194], 13);
+        }
+
+        // Modals & Toast
+        function toggleEmergencyModal() {
+            document.getElementById('emergency-modal').classList.toggle('hidden');
+        }
+
+        function openBookingModal(facilityName) {
+            document.getElementById('booking-facility-name').value = facilityName;
+            document.getElementById('booking-modal').classList.remove('hidden');
+        }
+
+        function closeBookingModal() {
+            document.getElementById('booking-modal').classList.add('hidden');
+        }
+
+        function confirmBooking() {
+            closeBookingModal();
+            showToast('Visit appointment confirmed & synced to your CareLink calendar!');
+        }
+
+        function showToast(msg) {
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-6 right-6 z-50 bg-brand-500 text-black font-bold px-5 py-3 rounded-2xl shadow-2xl text-xs flex items-center gap-2 animate-bounce';
+            toast.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i><span>${msg}</span>`;
+            document.body.appendChild(toast);
+            lucide.createIcons();
+            setTimeout(() => toast.remove(), 3500);
+        }
+
+        // Page Load Initializations
+        window.onload = function() {
+            renderHomeRecommendations();
+            renderCareFinderResults();
+            renderPodiumsDetailed();
+            renderMobileClinics();
+            renderDesertClusters();
+            renderFamilyProfiles();
+        };
+    </script>
+</body>
+</html>
