@@ -1,0 +1,1442 @@
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { 
+  Activity, MapPin, Search, AlertTriangle, Clock, Navigation, Phone, 
+  Share2, Shield, User, Users, Calendar, Filter, Heart, ArrowRight, 
+  CheckCircle2, Info, ChevronRight, BarChart3, Stethoscope, Pill, 
+  Sparkles, Building2, Truck, Eye, RefreshCw, Send, Layers, X, 
+  Award, Zap, ChevronDown, Check, Compass, Radio, LifeBuoy, Bell, 
+  FileText, TrendingUp, Settings, HelpCircle, LayoutDashboard, Globe
+} from 'lucide-react';
+
+const BENGALURU_CENTER = [12.9716, 77.5946];
+
+const INITIAL_FACILITIES = [
+  {
+    id: 'fac-1',
+    name: 'Apollo Hospitals - Bannerghatta',
+    type: 'Hospital',
+    category: 'Emergency',
+    rating: 4.8,
+    reviews: 1420,
+    lat: 12.8958,
+    lng: 77.5988,
+    address: '154, IIMB Post, Bannerghatta Main Rd, Bengaluru',
+    distanceKm: 4.2,
+    travelTimeMin: 14,
+    currentWaitMin: 12,
+    predictedWaitMin: 18,
+    capacityStatus: 'Moderate', // Low, Moderate, High
+    capacityPct: 62,
+    accessibilityScore: 94,
+    hasWheelchair: true,
+    hasICU: true,
+    hasPediatric: true,
+    has24_7Emergency: true,
+    services: ['Emergency Care', 'Cardiology', 'Trauma Unit', 'Pediatrics', 'Radiology'],
+    congestionTrend: [15, 20, 35, 60, 45, 25, 18], // Hourly 8am - 8pm
+    explanation: {
+      distanceWeight: 85,
+      waitTimeWeight: 98,
+      capabilityWeight: 96,
+      capacityWeight: 80,
+      accessibilityWeight: 95,
+      confidenceScore: 92,
+      reasoning: 'Recommended due to dedicated cardiac trauma ER bay, fast triage throughput, and 35% lower predicted wait time compared to closest alternative.'
+    }
+  },
+  {
+    id: 'fac-2',
+    name: 'Manipal Hospital - Old Airport Road',
+    type: 'Hospital',
+    category: 'Emergency',
+    rating: 4.7,
+    reviews: 1890,
+    lat: 12.9585,
+    lng: 77.6483,
+    address: '98, HAL Old Airport Rd, Kodihalli, Bengaluru',
+    distanceKm: 2.8,
+    travelTimeMin: 9,
+    currentWaitMin: 45,
+    predictedWaitMin: 55,
+    capacityStatus: 'High',
+    capacityPct: 91,
+    accessibilityScore: 89,
+    hasWheelchair: true,
+    hasICU: true,
+    hasPediatric: true,
+    has24_7Emergency: true,
+    services: ['24/7 ER', 'Neurology', 'Oncology', 'Surgical ICU', 'Ambulance Hub'],
+    congestionTrend: [30, 45, 75, 90, 85, 60, 55],
+    explanation: {
+      distanceWeight: 96,
+      waitTimeWeight: 45,
+      capabilityWeight: 98,
+      capacityWeight: 30,
+      accessibilityWeight: 90,
+      confidenceScore: 81,
+      reasoning: 'Closest Level-1 ER trauma center, but currently experiencing heavy surge in emergency intake.'
+    }
+  },
+  {
+    id: 'fac-3',
+    name: 'Victoria Government Tertiary Medical Center',
+    type: 'Government Hospital',
+    category: 'Government Hospital',
+    rating: 4.2,
+    reviews: 950,
+    lat: 12.9629,
+    lng: 77.5753,
+    address: 'Near City Market, Fort Rd, Kalasipalya, Bengaluru',
+    distanceKm: 5.1,
+    travelTimeMin: 18,
+    currentWaitMin: 65,
+    predictedWaitMin: 80,
+    capacityStatus: 'High',
+    capacityPct: 96,
+    accessibilityScore: 78,
+    hasWheelchair: true,
+    hasICU: true,
+    hasPediatric: false,
+    has24_7Emergency: true,
+    services: ['General ER', 'Government Subsidy', 'Burns Ward', 'Blood Bank'],
+    congestionTrend: [50, 70, 95, 100, 90, 80, 80],
+    explanation: {
+      distanceWeight: 75,
+      waitTimeWeight: 30,
+      capabilityWeight: 88,
+      capacityWeight: 20,
+      accessibilityWeight: 78,
+      confidenceScore: 74,
+      reasoning: 'Full specialty infrastructure with government program coverage, though patient queue is currently saturated.'
+    }
+  },
+  {
+    id: 'fac-4',
+    name: 'Fortis Health Clinic - Indiranagar',
+    type: 'Clinic',
+    category: 'Clinics',
+    rating: 4.6,
+    reviews: 310,
+    lat: 12.9784,
+    lng: 77.6408,
+    address: '100 Feet Rd, HAL 2nd Stage, Indiranagar, Bengaluru',
+    distanceKm: 1.9,
+    travelTimeMin: 6,
+    currentWaitMin: 10,
+    predictedWaitMin: 12,
+    capacityStatus: 'Low',
+    capacityPct: 35,
+    accessibilityScore: 92,
+    hasWheelchair: true,
+    hasICU: false,
+    hasPediatric: true,
+    has24_7Emergency: false,
+    services: ['Outpatient Consultation', 'Pediatrics', 'Vaccination', 'Basic Diagnostics'],
+    congestionTrend: [10, 15, 25, 40, 30, 20, 10],
+    explanation: {
+      distanceWeight: 98,
+      waitTimeWeight: 95,
+      capabilityWeight: 70,
+      capacityWeight: 95,
+      accessibilityWeight: 92,
+      confidenceScore: 88,
+      reasoning: 'Optimal for non-life-threatening urgent pediatric or outpatient care with minimal waiting.'
+    }
+  },
+  {
+    id: 'fac-5',
+    name: 'MedPlus 24/7 Super Pharmacy & Express Lab',
+    type: 'Pharmacy',
+    category: 'Pharmacies',
+    rating: 4.9,
+    reviews: 620,
+    lat: 12.9345,
+    lng: 77.6101,
+    address: '80 Feet Rd, 4th Block, Koramangala, Bengaluru',
+    distanceKm: 1.2,
+    travelTimeMin: 4,
+    currentWaitMin: 5,
+    predictedWaitMin: 5,
+    capacityStatus: 'Low',
+    capacityPct: 20,
+    accessibilityScore: 96,
+    hasWheelchair: true,
+    hasICU: false,
+    hasPediatric: false,
+    has24_7Emergency: false,
+    services: ['24/7 Prescription Dispensing', 'Home Delivery', 'Emergency Oxygen Cylinders', 'BP Screening'],
+    congestionTrend: [5, 10, 20, 25, 20, 15, 5],
+    explanation: {
+      distanceWeight: 99,
+      waitTimeWeight: 99,
+      capabilityWeight: 60,
+      capacityWeight: 98,
+      accessibilityWeight: 96,
+      confidenceScore: 95,
+      reasoning: 'In-stock 24/7 critical medication supply point with real-time inventory verification.'
+    }
+  },
+  {
+    id: 'fac-6',
+    name: 'Anand Diagnostic Laboratory & Scan Hub',
+    type: 'Diagnostic Center',
+    category: 'Diagnostic centers',
+    rating: 4.7,
+    reviews: 840,
+    lat: 12.9812,
+    lng: 77.5962,
+    address: 'Infantry Rd, Vasanth Nagar, Bengaluru',
+    distanceKm: 3.5,
+    travelTimeMin: 11,
+    currentWaitMin: 15,
+    predictedWaitMin: 20,
+    capacityStatus: 'Moderate',
+    capacityPct: 55,
+    accessibilityScore: 90,
+    hasWheelchair: true,
+    hasICU: false,
+    hasPediatric: false,
+    has24_7Emergency: false,
+    services: ['MRI 3T Scan', '128-Slice CT', 'Full Blood Panel', 'Ultrasound', 'Cardiac Echo'],
+    congestionTrend: [40, 60, 50, 45, 30, 20, 10],
+    explanation: {
+      distanceWeight: 88,
+      waitTimeWeight: 88,
+      capabilityWeight: 92,
+      capacityWeight: 85,
+      accessibilityWeight: 90,
+      confidenceScore: 89,
+      reasoning: 'High-speed imaging throughput with same-day report turnaround and senior radiologist availability.'
+    }
+  }
+];
+
+const HEALTHCARE_DESERTS = [
+  {
+    id: 'desert-1',
+    name: 'Cluster 07 - Sarjapur Peri-Urban Outer Belt',
+    accessScore: 32,
+    priority: 'HIGH PRIORITY',
+    population: '145,000 residents',
+    lat: 12.8580,
+    lng: 77.7800,
+    radiusMeters: 3500,
+    avgErDistanceKm: 16.4,
+    reason: 'Rapid real-estate expansion outpaced healthcare infrastructure. Zero Level-1 trauma ERs within a 25-minute transit window.'
+  },
+  {
+    id: 'desert-2',
+    name: 'Cluster 12 - Nelamangala Rural Fringe Zone',
+    accessScore: 28,
+    priority: 'CRITICAL PRIORITY',
+    population: '98,000 residents',
+    lat: 13.0980,
+    lng: 77.3900,
+    radiusMeters: 4500,
+    avgErDistanceKm: 22.1,
+    reason: 'High highway trauma frequency along NH-44 coupled with absence of specialized pediatric and cardiac ICU units.'
+  }
+];
+
+const MOBILE_CLINICS = [
+  {
+    id: 'mc-1',
+    title: 'Sarjapur Community Health & Diabetes Drive',
+    locationName: 'Sarjapur Panchayat Grounds, Outer Belt',
+    date: 'Upcoming Saturday',
+    time: '09:00 AM - 02:00 PM',
+    services: ['Free Blood Glucose Test', 'Tele-consultation with Cardiologist', 'Basic Eye Screening', 'Maternal Checkup'],
+    popServedEstimate: '650+ residents',
+    lat: 12.8590,
+    lng: 77.7810,
+    registeredCount: 142
+  },
+  {
+    id: 'mc-2',
+    title: 'Nelamangala Highway Rural Express Camp',
+    locationName: 'Nelamangala Community Center',
+    date: 'Next Tuesday',
+    time: '10:00 AM - 04:00 PM',
+    services: ['Trauma First-Aid Workshop', 'Pediatric Vaccination', 'General Health Panel', 'Free Meds Distribution'],
+    popServedEstimate: '800+ residents',
+    lat: 13.0990,
+    lng: 77.3920,
+    registeredCount: 215
+  }
+];
+
+const FAMILY_PROFILES = [
+  {
+    id: 'prof-self',
+    name: 'Self (Anand V.)',
+    relation: 'Primary User',
+    age: 34,
+    wheelchairRequired: false,
+    insurance: 'HDFC Ergo Health',
+    preferences: ['Distance Priority', 'Low Wait Time'],
+    icon: '👤'
+  },
+  {
+    id: 'prof-father',
+    name: 'Father (Ramesh V.)',
+    relation: 'Senior Citizen Parent',
+    age: 68,
+    wheelchairRequired: true,
+    insurance: 'Star Health Senior Citizen Plan',
+    preferences: ['Wheelchair Ramp Essential', 'Specialist Cardiac ER', 'Low Walking Required'],
+    icon: '👨‍🦳'
+  },
+  {
+    id: 'prof-child',
+    name: 'Riya (Daughter)',
+    relation: 'Child',
+    age: 5,
+    wheelchairRequired: false,
+    insurance: 'Family Floater',
+    preferences: ['Pediatric ER On-Site', 'Child-friendly Clinic'],
+    icon: '👧'
+  }
+];
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState('home'); // home, finder, map, emergency, mobile, appointments, family, copilot, profile, analytics, b2b
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeProfile, setActiveProfile] = useState(FAMILY_PROFILES[0]);
+  const [facilities, setFacilities] = useState(INITIAL_FACILITIES);
+  const [selectedFacility, setSelectedFacility] = useState(null);
+  const [isEmergencyActive, setIsEmergencyActive] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('All');
+  
+  // AI Navigation & Chat State
+  const [aiChatHistory, setAiChatHistory] = useState([
+    {
+      role: 'assistant',
+      text: "Hello Anand. I'm CareLink AI Navigator. Tell me what healthcare situation or symptoms you are experiencing today. I will convert your request into actionable facility recommendations based on current live traffic, congestion, and specialized capability."
+    }
+  ]);
+  const [userChatMessage, setUserChatMessage] = useState('');
+  const [isAiThinking, setIsAiThinking] = useState(false);
+
+  // Appointment Planner State
+  const [appointments, setAppointments] = useState([]);
+  const [bookingSlot, setBookingSlot] = useState(null);
+  const [selectedDate, setSelectedDate] = useState('Today');
+  const [showBookingSuccess, setShowBookingSuccess] = useState(false);
+
+  // Mobile Camp Registration
+  const [registeredCamps, setRegisteredCamps] = useState([]);
+
+  // Smart Alerts
+  const [notifications, setNotifications] = useState([
+    { id: 1, title: 'ER Surge Alert', desc: 'Manipal Hospital ER experiencing high congestion (+45 min wait). Apollo Bannerghatta recommended.', time: '10m ago', unread: true },
+    { id: 2, title: 'Mobile Camp Nearby', desc: 'Sarjapur Mobile Health Camp registration open for Saturday.', time: '1h ago', unread: true }
+  ]);
+  const [showAlertsMenu, setShowAlertsMenu] = useState(false);
+
+  // Demo Pitch Journey WOW Mode State
+  const [isPitchMode, setIsPitchMode] = useState(false);
+  const [pitchStep, setPitchStep] = useState(0);
+
+  // Leaflet Map Ref
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+
+  const rankedFacilities = useMemo(() => {
+    let list = [...facilities];
+    
+    if (filterCategory !== 'All') {
+      list = list.filter(f => f.category.toLowerCase().includes(filterCategory.toLowerCase()) || f.type.toLowerCase().includes(filterCategory.toLowerCase()));
+    }
+
+    if (searchQuery.trim() !== '') {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(f => 
+        f.name.toLowerCase().includes(q) || 
+        f.services.some(s => s.toLowerCase().includes(q)) ||
+        f.address.toLowerCase().includes(q)
+      );
+    }
+
+    // Custom ranking logic considering active family profile
+    return list.sort((a, b) => {
+      let scoreA = 100 - (a.predictedWaitMin * 0.4) - (a.distanceKm * 5);
+      let scoreB = 100 - (b.predictedWaitMin * 0.4) - (b.distanceKm * 5);
+
+      if (activeProfile.wheelchairRequired) {
+        if (a.hasWheelchair) scoreA += 25;
+        if (b.hasWheelchair) scoreB += 25;
+      }
+
+      if (activeProfile.preferences.some(p => p.includes('Cardiac')) && a.services.includes('Cardiology')) {
+        scoreA += 20;
+      }
+      if (activeProfile.preferences.some(p => p.includes('Cardiac')) && b.services.includes('Cardiology')) {
+        scoreB += 20;
+      }
+
+      return scoreB - scoreA;
+    });
+  }, [facilities, activeProfile, filterCategory, searchQuery]);
+
+  useEffect(() => {
+    if ((activeTab === 'map' || activeTab === 'finder') && mapRef.current && !mapInstanceRef.current) {
+      // Check if window.L is available
+      if (window.L) {
+        initLeafletMap();
+      } else {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.onload = () => {
+          initLeafletMap();
+        };
+        document.body.appendChild(script);
+      }
+    }
+
+    function initLeafletMap() {
+      if (!mapRef.current || mapInstanceRef.current) return;
+      
+      const L = window.L;
+      const map = L.map(mapRef.current).setView(BENGALURU_CENTER, 12);
+      mapInstanceRef.current = map;
+
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/">CARTO</a>',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Add Facility Markers
+      facilities.forEach((fac) => {
+        const iconColor = fac.capacityStatus === 'High' ? '#EF4444' : fac.capacityStatus === 'Moderate' ? '#F59E0B' : '#10B981';
+        
+        const customIcon = L.divIcon({
+          className: 'custom-leaflet-marker',
+          html: `<div style="background-color: ${iconColor}; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 11px;">+</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12]
+        });
+
+        const marker = L.marker([fac.lat, fac.lng], { icon: customIcon }).addTo(map);
+        marker.bindPopup(`
+          <div style="font-family: sans-serif; padding: 4px;">
+            <strong style="font-size: 14px; color: #0F172A;">${fac.name}</strong><br/>
+            <span style="font-size: 12px; color: #64748B;">Wait: ~${fac.predictedWaitMin} mins | Dist: ${fac.distanceKm} km</span><br/>
+            <div style="margin-top: 6px;">
+              <span style="display:inline-block; padding: 2px 8px; background: #E0F2FE; color: #0369A1; font-size: 11px; border-radius: 4px; font-weight: 600;">
+                Accessibility: ${fac.accessibilityScore}/100
+              </span>
+            </div>
+          </div>
+        `);
+        marker.on('click', () => setSelectedFacility(fac));
+      });
+
+      // Add Healthcare Desert Red Zones Overlay
+      HEALTHCARE_DESERTS.forEach(desert => {
+        L.circle([desert.lat, desert.lng], {
+          color: '#DC2626',
+          fillColor: '#EF4444',
+          fillOpacity: 0.25,
+          radius: desert.radiusMeters
+        }).addTo(map).bindPopup(`
+          <div style="font-family: sans-serif;">
+            <b style="color: #991B1B;">⚠️ ${desert.name}</b><br/>
+            <span>Healthcare Access Score: <b>${desert.accessScore}/100</b></span><br/>
+            <small>${desert.reason}</small>
+          </div>
+        `);
+      });
+    }
+  }, [activeTab, facilities]);
+
+  const handleSendAiMessage = async (textToSend) => {
+    const queryText = textToSend || userChatMessage;
+    if (!queryText.trim()) return;
+
+    const newHistory = [...aiChatHistory, { role: 'user', text: queryText }];
+    setAiChatHistory(newHistory);
+    setUserChatMessage('');
+    setIsAiThinking(true);
+
+    try {
+      const apiKey = "";
+      const systemInstruction = `You are CareLink AI Healthcare Navigator. 
+      You analyze user natural language healthcare queries and map them to appropriate facilities in the dataset.
+      CRITICAL SAFETY RULE: You MUST NEVER diagnose diseases or prescribe treatment.
+      Always evaluate urgency (Emergency vs Urgent vs Routine) and explain WHY a facility is ideal based on predicted wait time, accessibility, and capacity.
+      Reference application dataset context when appropriate.
+      Available Bengaluru facilities context: ${JSON.stringify(facilities.map(f => ({ name: f.name, wait: f.predictedWaitMin, dist: f.distanceKm, services: f.services })))}`;
+
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: queryText }] }],
+          systemInstruction: { parts: [{ text: systemInstruction }] }
+        })
+      });
+
+      const data = await response.json();
+      const reply = data.candidates?.[0]?.content?.parts?.[0]?.text || "I have processed your query and identified optimal healthcare navigation options below.";
+
+      setAiChatHistory([...newHistory, { role: 'assistant', text: reply }]);
+    } catch (error) {
+      setAiChatHistory([...newHistory, { 
+        role: 'assistant', 
+        text: "CareLink Navigation Engine: Based on your input, I recommend Apollo Bannerghatta for emergency cardiac/trauma symptoms (Wait: 18 min, High accessibility) or Fortis Indiranagar for general outpatient needs." 
+      }]);
+    } finally {
+      setIsAiThinking(false);
+    }
+  };
+
+  const runPitchJourney = () => {
+    setIsPitchMode(true);
+    setPitchStep(1);
+    setActiveTab('home');
+    setSearchQuery('I need urgent medical care for my father');
+
+    setTimeout(() => {
+      setPitchStep(2);
+      setActiveTab('copilot');
+      handleSendAiMessage('I need urgent medical care for my father who is experiencing acute discomfort');
+    }, 2500);
+
+    setTimeout(() => {
+      setPitchStep(3);
+      setActiveTab('finder');
+      setSelectedFacility(facilities[0]);
+    }, 6000);
+
+    setTimeout(() => {
+      setPitchStep(4);
+      setActiveTab('map');
+    }, 9500);
+
+    setTimeout(() => {
+      setPitchStep(5);
+      setActiveTab('mobile');
+    }, 13000);
+
+    setTimeout(() => {
+      setPitchStep(6);
+      setActiveTab('b2b');
+    }, 16000);
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans flex flex-col md:flex-row antialiased selection:bg-cyan-500 selection:text-white">
+      
+      {}
+      <aside className="w-full md:w-64 bg-slate-900/80 backdrop-blur-xl border-r border-slate-800/80 flex flex-col justify-between shrink-0 sticky top-0 z-40 h-auto md:h-screen">
+        <div>
+          {/* Logo Header */}
+          <div className="p-5 flex items-center justify-between border-b border-slate-800/60">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-teal-400 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                <Activity className="w-6 h-6 text-slate-950 stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-100 to-slate-400 bg-clip-text text-transparent">CareLink</span>
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold bg-cyan-500/20 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30">AI</span>
+                </div>
+                <p className="text-[10px] text-slate-400 font-medium">Healthcare Navigation</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick WOW Pitch Demo Launcher */}
+          <div className="px-3 pt-3">
+            <button
+              onClick={runPitchJourney}
+              className="w-full py-2 px-3 rounded-lg bg-gradient-to-r from-cyan-600 to-teal-600 hover:from-cyan-500 hover:to-teal-500 text-white font-medium text-xs flex items-center justify-center gap-2 shadow-md shadow-cyan-950/50 transition-all border border-cyan-400/30 group"
+            >
+              <Sparkles className="w-4 h-4 text-cyan-200 animate-pulse" />
+              <span>▶ Interactive Pitch Demo</span>
+            </button>
+          </div>
+
+          {/* Active Profile Quick Selector Badge */}
+          <div className="px-3 pt-3">
+            <div 
+              onClick={() => setActiveTab('family')}
+              className="bg-slate-800/60 hover:bg-slate-800/90 border border-slate-700/50 rounded-xl p-2.5 flex items-center justify-between cursor-pointer transition"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xl">{activeProfile.icon}</span>
+                <div className="text-left">
+                  <div className="text-xs font-semibold text-slate-200">{activeProfile.name}</div>
+                  <div className="text-[10px] text-cyan-400 font-medium">{activeProfile.relation}</div>
+                </div>
+              </div>
+              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+            </div>
+          </div>
+
+          {/* Main Navigation Items */}
+          <nav className="px-2 py-4 space-y-1">
+            {[
+              { id: 'home', label: 'Home Navigation', icon: Compass },
+              { id: 'copilot', label: 'AI Navigator', icon: Sparkles, badge: 'Smart' },
+              { id: 'finder', label: 'Smart Care Finder', icon: Search },
+              { id: 'map', label: 'Interactive Care Map', icon: MapPin },
+              { id: 'emergency', label: 'Emergency Mode', icon: AlertTriangle, color: 'text-red-400' },
+              { id: 'mobile', label: 'Mobile Health Camps', icon: Truck },
+              { id: 'appointments', label: 'Visit Planner', icon: Calendar },
+              { id: 'analytics', label: 'Access Analytics', icon: BarChart3 },
+              { id: 'family', label: 'Family Profiles', icon: Users },
+              { id: 'b2b', label: 'Provider Portal', icon: LayoutDashboard, badge: 'B2B' },
+            ].map(item => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => { setActiveTab(item.id); setIsEmergencyActive(item.id === 'emergency'); }}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl font-medium text-xs transition-all ${
+                    isActive 
+                      ? 'bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 shadow-inner' 
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`w-4 h-4 ${item.color || (isActive ? 'text-cyan-400' : 'text-slate-400')}`} />
+                    <span>{item.label}</span>
+                  </div>
+                  {item.badge && (
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-cyan-400 border border-slate-700">
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Footer Info Badge */}
+        <div className="p-3 border-t border-slate-800/80 bg-slate-950/40">
+          <div className="flex items-center gap-2 text-[10px] text-slate-500">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+            <span>Bengaluru Metro Region Grid • Live</span>
+          </div>
+          <div className="text-[9px] text-slate-600 mt-1">
+            CareLink AI Engine v3.1 • Demo Mode
+          </div>
+        </div>
+      </aside>
+
+      {}
+      <main className="flex-1 flex flex-col min-w-0 overflow-y-auto max-h-screen">
+        
+        {/* Top Header Bar */}
+        <header className="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-3 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-400 font-medium hidden sm:inline">Location:</span>
+            <div className="flex items-center gap-1.5 bg-slate-800/70 border border-slate-700/60 px-3 py-1.5 rounded-full text-xs font-semibold text-slate-200">
+              <MapPin className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Koramangala, Bengaluru, KA</span>
+            </div>
+          </div>
+
+          {/* Sticky Emergency Quick Trigger & Notifications */}
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => { setActiveTab('emergency'); setIsEmergencyActive(true); }}
+              className="bg-red-600/90 hover:bg-red-600 text-white font-bold text-xs px-3.5 py-1.5 rounded-full flex items-center gap-2 shadow-lg shadow-red-950/60 transition border border-red-400/40 animate-pulse"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>🚨 EMERGENCY SOS</span>
+            </button>
+
+            {/* Notifications Menu Trigger */}
+            <div className="relative">
+              <button 
+                onClick={() => setShowAlertsMenu(!showAlertsMenu)}
+                className="p-2 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 relative transition"
+              >
+                <Bell className="w-4 h-4" />
+                {notifications.some(n => n.unread) && (
+                  <span className="absolute top-1 right-1 w-2 h-2 bg-cyan-400 rounded-full"></span>
+                )}
+              </button>
+
+              {showAlertsMenu && (
+                <div className="absolute right-0 mt-2 w-80 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-3 z-50">
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-800">
+                    <span className="text-xs font-bold text-slate-200">Smart Alerts & Warnings</span>
+                    <button onClick={() => setNotifications([])} className="text-[10px] text-slate-400 hover:text-slate-200">Clear</button>
+                  </div>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {notifications.length === 0 ? (
+                      <div className="text-xs text-slate-500 py-4 text-center">No active notifications</div>
+                    ) : (
+                      notifications.map(n => (
+                        <div key={n.id} className="bg-slate-800/50 p-2.5 rounded-xl border border-slate-700/40 text-xs">
+                          <div className="font-semibold text-slate-200 flex justify-between">
+                            <span>{n.title}</span>
+                            <span className="text-[10px] text-slate-400 font-normal">{n.time}</span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 mt-1">{n.desc}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        {/* Pitch Journey Guidance Banner */}
+        {isPitchMode && (
+          <div className="bg-gradient-to-r from-cyan-900/90 via-slate-900 to-teal-900/90 border-b border-cyan-500/40 px-6 py-2.5 flex items-center justify-between text-xs text-cyan-200">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-cyan-400 animate-spin" />
+              <span className="font-bold">Pitch Demo Journey Active (Step {pitchStep}/6):</span>
+              <span>
+                {pitchStep === 1 && "Entering Natural Language Care Query..."}
+                {pitchStep === 2 && "CareLink AI Intent Analysis & Safety Screening..."}
+                {pitchStep === 3 && "Evaluating Podium Facilities & Wait-Time Forecasts..."}
+                {pitchStep === 4 && "Visualizing Regional Deserts & Accessibility Score..."}
+                {pitchStep === 5 && "Inspecting Mobile Camp Registrations..."}
+                {pitchStep === 6 && "Demonstrating Provider B2B Hospital SaaS Portal..."}
+              </span>
+            </div>
+            <button onClick={() => setIsPitchMode(false)} className="text-slate-400 hover:text-white text-xs underline">Exit Demo</button>
+          </div>
+        )}
+
+        {}
+        <div className="p-4 md:p-8 space-y-8 flex-1">
+
+          {/* TAB 1: SMART HOME */}
+          {activeTab === 'home' && (
+            <div className="space-y-8 max-w-6xl mx-auto">
+              
+              {/* Pitch Positioning Hero */}
+              <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-900 via-slate-900/90 to-cyan-950/40 border border-slate-800 p-6 md:p-10 shadow-2xl">
+                <div className="absolute top-0 right-0 -mt-12 -mr-12 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div className="relative z-10 max-w-2xl space-y-4">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-medium">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Intelligent Healthcare Access Platform</span>
+                  </div>
+                  <h1 className="text-3xl md:text-5xl font-black tracking-tight text-white leading-tight">
+                    Know where to go.<br/>
+                    <span className="bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 bg-clip-text text-transparent">Get care faster.</span>
+                  </h1>
+                  <p className="text-sm md:text-base text-slate-300 leading-relaxed font-normal">
+                    "Google Maps tells you where healthcare is. <strong className="text-cyan-300 font-semibold">CareLink tells you where you should go right now.</strong>"
+                  </p>
+                </div>
+
+                {/* AI Search Query Box */}
+                <div className="mt-8 relative max-w-3xl">
+                  <div className="relative flex items-center bg-slate-950/90 rounded-2xl border border-cyan-500/40 shadow-2xl focus-within:border-cyan-400 focus-within:ring-2 focus-within:ring-cyan-500/20 transition-all p-2">
+                    <Search className="w-5 h-5 text-cyan-400 ml-3 shrink-0" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setActiveTab('copilot');
+                          handleSendAiMessage(searchQuery);
+                        }
+                      }}
+                      placeholder="What healthcare do you need today? (e.g. Chest tightness, Urgent fever for father...)"
+                      className="w-full bg-transparent border-0 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none"
+                    />
+                    <button
+                      onClick={() => {
+                        setActiveTab('copilot');
+                        handleSendAiMessage(searchQuery);
+                      }}
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs px-5 py-3 rounded-xl flex items-center gap-1.5 transition shrink-0 shadow-lg shadow-cyan-500/20"
+                    >
+                      <span>Navigate</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Prompt Trigger Tags */}
+                  <div className="flex flex-wrap items-center gap-2 mt-3">
+                    <span className="text-[11px] text-slate-400 font-medium">Quick Prompts:</span>
+                    {[
+                      'Chest tightness / Emergency',
+                      'Urgent pediatric fever',
+                      '24/7 Pharmacy near me',
+                      'Elderly wheelchair lab test',
+                      'Mobile camp registration'
+                    ].map((prompt, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          setSearchQuery(prompt);
+                          setActiveTab('copilot');
+                          handleSendAiMessage(prompt);
+                        }}
+                        className="text-[11px] bg-slate-800/80 hover:bg-slate-800 text-slate-300 border border-slate-700/60 px-2.5 py-1 rounded-lg transition"
+                      >
+                        {prompt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Actions Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                {[
+                  { label: 'Find Care', icon: Search, tab: 'finder', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+                  { label: 'Emergency', icon: AlertTriangle, tab: 'emergency', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
+                  { label: 'Nearby Map', icon: MapPin, tab: 'map', color: 'bg-teal-500/10 text-teal-400 border-teal-500/20' },
+                  { label: 'Mobile Camps', icon: Truck, tab: 'mobile', color: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+                  { label: 'Diagnostics', icon: Activity, tab: 'finder', cat: 'Diagnostic centers', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' },
+                  { label: 'Pharmacies', icon: Pill, tab: 'finder', cat: 'Pharmacies', color: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' }
+                ].map((act, i) => {
+                  const Icon = act.icon;
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => {
+                        setActiveTab(act.tab);
+                        if (act.cat) setFilterCategory(act.cat);
+                      }}
+                      className={`p-4 rounded-2xl border flex flex-col items-center justify-center gap-2 hover:scale-[1.02] transition-all cursor-pointer ${act.color}`}
+                    >
+                      <Icon className="w-6 h-6" />
+                      <span className="text-xs font-semibold text-slate-200">{act.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Top Podium Recommendations Summary Preview */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                      <Award className="w-5 h-5 text-amber-400" />
+                      <span>Recommended Facilities for {activeProfile.name}</span>
+                    </h2>
+                    <p className="text-xs text-slate-400">Ranked dynamically by distance, predicted wait, capability, and wheelchair access.</p>
+                  </div>
+                  <button onClick={() => setActiveTab('finder')} className="text-xs text-cyan-400 hover:underline flex items-center gap-1 font-medium">
+                    View All Facilities <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {rankedFacilities.slice(0, 3).map((fac, idx) => (
+                    <div 
+                      key={fac.id}
+                      className={`relative bg-slate-900 rounded-2xl border p-5 space-y-3 flex flex-col justify-between transition-all hover:border-slate-700 ${
+                        idx === 0 ? 'border-cyan-500/50 shadow-lg shadow-cyan-950/30' : 'border-slate-800'
+                      }`}
+                    >
+                      {/* Medal Badge */}
+                      <div className="flex items-center justify-between">
+                        <span className={`text-xs font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${
+                          idx === 0 ? 'bg-amber-500/20 text-amber-300 border-amber-500/30' :
+                          idx === 1 ? 'bg-slate-700/50 text-slate-300 border-slate-600' :
+                          'bg-amber-900/20 text-amber-600 border-amber-800/40'
+                        }`}>
+                          {idx === 0 ? '🥇 BEST MATCH' : idx === 1 ? '🥈 ALTERNATIVE' : '🥉 BACKUP'}
+                        </span>
+                        <span className="text-xs font-bold text-cyan-400">{fac.explanation.confidenceScore}% Match</span>
+                      </div>
+
+                      <div>
+                        <h3 className="font-bold text-slate-100 text-sm leading-snug">{fac.name}</h3>
+                        <p className="text-[11px] text-slate-400 mt-0.5">{fac.address}</p>
+                      </div>
+
+                      {/* Key Stats Row */}
+                      <div className="grid grid-cols-3 gap-2 py-2 border-y border-slate-800/80 text-center">
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Travel</span>
+                          <span className="text-xs font-semibold text-slate-200">{fac.travelTimeMin} mins</span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Est. Wait</span>
+                          <span className={`text-xs font-bold ${fac.predictedWaitMin < 20 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {fac.predictedWaitMin} mins
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-500 block">Access Score</span>
+                          <span className="text-xs font-semibold text-cyan-300">{fac.accessibilityScore}/100</span>
+                        </div>
+                      </div>
+
+                      {/* XAI Snippet */}
+                      <p className="text-[11px] text-slate-400 italic bg-slate-950/50 p-2.5 rounded-xl border border-slate-800">
+                        "{fac.explanation.reasoning}"
+                      </p>
+
+                      <button
+                        onClick={() => {
+                          setSelectedFacility(fac);
+                          setActiveTab('finder');
+                        }}
+                        className="w-full py-2 bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 rounded-xl transition flex items-center justify-center gap-1"
+                      >
+                        <span>View Facility Breakdown</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 2: AI HEALTHCARE NAVIGATOR & COPILOT */}
+          {activeTab === 'copilot' && (
+            <div className="max-w-4xl mx-auto space-y-4 h-[calc(100vh-140px)] flex flex-col">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-white">CareLink AI Healthcare Copilot</h2>
+                    <p className="text-xs text-slate-400">Natural language intent analysis & explainable facility routing.</p>
+                  </div>
+                </div>
+                <div className="text-[11px] bg-red-500/10 text-red-400 border border-red-500/30 px-3 py-1 rounded-full font-medium">
+                  ⚠️ Non-Diagnostic Safety Shield Active
+                </div>
+              </div>
+
+              {/* Chat Message Scroll Box */}
+              <div className="flex-1 bg-slate-900/60 rounded-3xl border border-slate-800 p-4 overflow-y-auto space-y-4">
+                {aiChatHistory.map((msg, index) => (
+                  <div key={index} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    {msg.role === 'assistant' && (
+                      <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0 text-cyan-300">
+                        <Sparkles className="w-4 h-4" />
+                      </div>
+                    )}
+                    <div className={`max-w-xl rounded-2xl p-4 text-xs leading-relaxed ${
+                      msg.role === 'user'
+                        ? 'bg-cyan-600 text-white rounded-tr-none shadow-md'
+                        : 'bg-slate-800/90 text-slate-200 border border-slate-700/60 rounded-tl-none space-y-2'
+                    }`}>
+                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                    </div>
+                  </div>
+                ))}
+                {isAiThinking && (
+                  <div className="flex items-center gap-2 text-xs text-cyan-400 italic bg-slate-800/40 p-3 rounded-2xl w-fit border border-slate-700/50">
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Analyzing symptoms, live traffic, and ER wait queues...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Chat Input Bar */}
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-2xl p-2">
+                <input
+                  type="text"
+                  value={userChatMessage}
+                  onChange={(e) => setUserChatMessage(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSendAiMessage()}
+                  placeholder="Describe your health situation or ask CareLink AI..."
+                  className="flex-1 bg-transparent border-0 px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none"
+                />
+                <button
+                  onClick={() => handleSendAiMessage()}
+                  disabled={isAiThinking}
+                  className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold p-2.5 rounded-xl transition"
+                >
+                  <Send className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: SMART CARE FINDER & PODIUM */}
+          {activeTab === 'finder' && (
+            <div className="space-y-6 max-w-6xl mx-auto">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">Smart Care Finder</h2>
+                  <p className="text-xs text-slate-400">Search and filter healthcare facilities with real-time AI wait predictions.</p>
+                </div>
+
+                {/* Filter Pills */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {['All', 'Emergency', 'Clinics', 'Pharmacies', 'Diagnostic centers', 'Government Hospital'].map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setFilterCategory(cat)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${
+                        filterCategory === cat
+                          ? 'bg-cyan-500 text-slate-950 font-bold'
+                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700 hover:text-white'
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Facility Cards Directory Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {rankedFacilities.map((fac) => (
+                  <div
+                    key={fac.id}
+                    onClick={() => setSelectedFacility(fac)}
+                    className="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4 hover:border-cyan-500/50 cursor-pointer transition flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[10px] uppercase tracking-wider font-bold text-cyan-400 bg-cyan-950/60 px-2.5 py-0.5 rounded border border-cyan-800/40">
+                          {fac.type}
+                        </span>
+                        <div className="flex items-center gap-1 text-amber-400 text-xs font-semibold">
+                          ★ {fac.rating} <span className="text-slate-500 text-[10px]">({fac.reviews})</span>
+                        </div>
+                      </div>
+
+                      <h3 className="font-bold text-white text-base leading-snug">{fac.name}</h3>
+                      <p className="text-xs text-slate-400 mt-1 flex items-center gap-1">
+                        <MapPin className="w-3.5 h-3.5 text-slate-500" />
+                        {fac.address}
+                      </p>
+                    </div>
+
+                    {/* Stats Grid */}
+                    <div className="grid grid-cols-2 gap-2 bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-xs">
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Estimated Wait</span>
+                        <span className={`font-bold ${fac.predictedWaitMin < 20 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          ⏱️ ~{fac.predictedWaitMin} mins
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[10px] text-slate-500 block">Accessibility Score</span>
+                        <span className="font-bold text-cyan-300">♿ {fac.accessibilityScore}/100</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400">
+                      <span>Distance: <b className="text-slate-200">{fac.distanceKm} km</b></span>
+                      <span className="text-cyan-400 font-semibold hover:underline">Inspect XAI Breakdown →</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Selected Facility Detail Drawer Modal */}
+              {selectedFacility && (
+                <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-6 max-h-[90vh] overflow-y-auto relative">
+                    <button
+                      onClick={() => setSelectedFacility(null)}
+                      className="absolute top-4 right-4 text-slate-400 hover:text-white p-2"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+
+                    <div>
+                      <span className="text-xs text-cyan-400 font-bold uppercase">{selectedFacility.type}</span>
+                      <h2 className="text-2xl font-bold text-white">{selectedFacility.name}</h2>
+                      <p className="text-xs text-slate-400">{selectedFacility.address}</p>
+                    </div>
+
+                    {/* Explainable AI Radar Bar Visualizer */}
+                    <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Sparkles className="w-4 h-4 text-cyan-400" />
+                          <span>CareLink Explainable AI Reasoning (XAI)</span>
+                        </span>
+                        <span className="text-xs font-extrabold text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded border border-cyan-800">
+                          {selectedFacility.explanation.confidenceScore}% Confidence
+                        </span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {[
+                          { label: 'Distance Score', val: selectedFacility.explanation.distanceWeight },
+                          { label: 'Wait Time Score', val: selectedFacility.explanation.waitTimeWeight },
+                          { label: 'Specialist Capability', val: selectedFacility.explanation.capabilityWeight },
+                          { label: 'Capacity Score', val: selectedFacility.explanation.capacityWeight },
+                          { label: 'Accessibility Score', val: selectedFacility.explanation.accessibilityWeight }
+                        ].map((item, idx) => (
+                          <div key={idx} className="space-y-1">
+                            <div className="flex justify-between text-[11px] text-slate-300">
+                              <span>{item.label}</span>
+                              <span className="font-semibold text-cyan-400">{item.val}%</span>
+                            </div>
+                            <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                              <div
+                                className="bg-gradient-to-r from-cyan-500 to-teal-400 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${item.val}%` }}
+                              ></div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-xs text-slate-300 italic pt-2">
+                        "{selectedFacility.explanation.reasoning}"
+                      </p>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-3">
+                      <button 
+                        onClick={() => {
+                          setBookingSlot(selectedFacility);
+                          setSelectedFacility(null);
+                          setActiveTab('appointments');
+                        }}
+                        className="flex-1 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3 rounded-xl text-xs flex items-center justify-center gap-2"
+                      >
+                        <Calendar className="w-4 h-4" />
+                        <span>Book Visit Appointment</span>
+                      </button>
+                      <button 
+                        onClick={() => window.open(`https://maps.google.com/?q=${selectedFacility.lat},${selectedFacility.lng}`, '_blank')}
+                        className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-4 py-3 rounded-xl text-xs flex items-center gap-2"
+                      >
+                        <Navigation className="w-4 h-4 text-cyan-400" />
+                        <span>Get Route</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: INTERACTIVE LEAFLET HEALTHCARE MAP */}
+          {activeTab === 'map' && (
+            <div className="space-y-4 max-w-6xl mx-auto h-[calc(100vh-140px)] flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-cyan-400" />
+                    <span>Interactive Bengaluru Healthcare Grid</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">OpenStreetMap integration featuring live hospital capacity & red desert zones.</p>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-emerald-500"></span> Low Queue</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-500"></span> Moderate</span>
+                  <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-red-500"></span> ER Surge</span>
+                </div>
+              </div>
+
+              {/* Leaflet Map Canvas Box */}
+              <div className="flex-1 w-full bg-slate-900 rounded-3xl border border-slate-800 overflow-hidden relative shadow-2xl">
+                <div ref={mapRef} className="w-full h-full z-10"></div>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: EMERGENCY MODE */}
+          {activeTab === 'emergency' && (
+            <div className="max-w-3xl mx-auto space-y-6">
+              <div className="bg-red-950/80 border-2 border-red-500/60 rounded-3xl p-6 md:p-8 space-y-6 shadow-2xl shadow-red-950/80 animate-pulse">
+                <div className="flex items-center gap-4">
+                  <div className="p-4 rounded-2xl bg-red-600 text-white shadow-lg">
+                    <AlertTriangle className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl font-black text-white uppercase tracking-wide">Emergency SOS Mode Active</h1>
+                    <p className="text-xs text-red-200">Isolating fastest trauma capability ER facilities in Koramangala & Indiranagar corridor.</p>
+                  </div>
+                </div>
+
+                {/* Immediate Emergency Actions */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => alert("Connecting to 108 Emergency Medical Services...")}
+                    className="py-4 bg-red-600 hover:bg-red-500 text-white font-black rounded-2xl text-sm flex items-center justify-center gap-2 shadow-xl"
+                  >
+                    <Phone className="w-5 h-5" />
+                    <span>CALL 108 EMERGENCY</span>
+                  </button>
+                  <button 
+                    onClick={() => alert("Live GPS location dispatched to emergency contacts in Family Profile.")}
+                    className="py-4 bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold rounded-2xl text-sm flex items-center justify-center gap-2 border border-red-500/40"
+                  >
+                    <Share2 className="w-5 h-5 text-red-400" />
+                    <span>SHARE GPS WITH FAMILY</span>
+                  </button>
+                </div>
+
+                {/* Fastest Recommended ER */}
+                <div className="bg-slate-950/90 p-5 rounded-2xl border border-red-500/30 space-y-3">
+                  <span className="text-[10px] font-extrabold uppercase bg-red-500/20 text-red-300 px-2.5 py-1 rounded border border-red-500/40">
+                    Fastest Trauma Intake ER
+                  </span>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-white">{facilities[0].name}</h3>
+                      <p className="text-xs text-slate-400">{facilities[0].address}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xl font-black text-emerald-400">{facilities[0].travelTimeMin} Mins</span>
+                      <span className="text-[10px] text-slate-400 block">Est. Drive Time</span>
+                    </div>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-red-300/80 italic text-center">
+                  CareLink SOS is a digital navigation assistant and does not replace official national emergency response services.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* TAB 6: MOBILE HEALTH CLINICS */}
+          {activeTab === 'mobile' && (
+            <div className="space-y-6 max-w-5xl mx-auto">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-amber-400" />
+                  <span>Mobile Health Camps & Outreach</span>
+                </h2>
+                <p className="text-xs text-slate-400">Serving healthcare-desert regions around Bangalore outer peripheries.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {MOBILE_CLINICS.map((camp) => (
+                  <div key={camp.id} className="bg-slate-900 rounded-2xl border border-slate-800 p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-amber-400 bg-amber-950/60 px-2.5 py-1 rounded border border-amber-800/40">
+                        📅 {camp.date}
+                      </span>
+                      <span className="text-xs text-slate-400">{camp.time}</span>
+                    </div>
+
+                    <div>
+                      <h3 className="font-bold text-white text-base">{camp.title}</h3>
+                      <p className="text-xs text-slate-400 mt-1">📍 {camp.locationName}</p>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[11px] text-slate-400 font-semibold">Services Offered:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {camp.services.map((s, i) => (
+                          <span key={i} className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md border border-slate-700">
+                            {s}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        setRegisteredCamps([...registeredCamps, camp.id]);
+                        alert(`Successfully registered for ${camp.title}! SMS pass sent.`);
+                      }}
+                      disabled={registeredCamps.includes(camp.id)}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition ${
+                        registeredCamps.includes(camp.id)
+                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                          : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
+                      }`}
+                    >
+                      {registeredCamps.includes(camp.id) ? '✓ RSVP Registered' : 'Register Free Spot'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 7: APPOINTMENTS & VISIT PLANNER */}
+          {activeTab === 'appointments' && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              <div>
+                <h2 className="text-xl font-bold text-white">Visit & Appointment Planner</h2>
+                <p className="text-xs text-slate-400">Select preferred facility and time slot with instant digital pass confirmation.</p>
+              </div>
+
+              {/* Slot Booking Card */}
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 space-y-6">
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 block mb-2">Select Target Facility:</label>
+                  <select 
+                    onChange={(e) => setBookingSlot(facilities.find(f => f.id === e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none"
+                  >
+                    {facilities.map(f => (
+                      <option key={f.id} value={f.id}>{f.name} (~{f.predictedWaitMin} min wait)</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-slate-400 block mb-2">Available Slots (Simulated Live Grid):</label>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                    {['09:30 AM', '11:00 AM', '02:15 PM', '04:30 PM', '06:00 PM'].map((slot, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const newAppt = {
+                            id: Date.now(),
+                            facility: bookingSlot?.name || facilities[0].name,
+                            slot,
+                            date: 'Today',
+                            patient: activeProfile.name
+                          };
+                          setAppointments([...appointments, newAppt]);
+                          setShowBookingSuccess(true);
+                        }}
+                        className="py-2.5 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 text-slate-200 text-xs font-semibold rounded-xl transition border border-slate-700/60"
+                      >
+                        {slot}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Confirmed Appointments List */}
+                {appointments.length > 0 && (
+                  <div className="pt-4 border-t border-slate-800 space-y-3">
+                    <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Your Scheduled Visits</h3>
+                    <div className="space-y-2">
+                      {appointments.map((a) => (
+                        <div key={a.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex items-center justify-between text-xs">
+                          <div>
+                            <div className="font-bold text-white">{a.facility}</div>
+                            <div className="text-slate-400 text-[11px]">Patient: {a.patient} • Slot: {a.slot}</div>
+                          </div>
+                          <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg font-semibold">
+                            Confirmed QR
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 8: ACCESS ANALYTICS */}
+          {activeTab === 'analytics' && (
+            <div className="space-y-6 max-w-5xl mx-auto">
+              <div>
+                <h2 className="text-xl font-bold text-white">Healthcare Access Analytics</h2>
+                <p className="text-xs text-slate-400">City-wide congestion trends and rural access disparity scores.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { label: 'Avg Metro ER Travel Time', val: '14.2 mins', change: '-18% with CareLink' },
+                  { label: 'Urban Access Index', val: '86/100', change: 'High Coverage' },
+                  { label: 'Peri-Urban Desert Index', val: '32/100', change: 'Critical Focus Zone' }
+                ].map((stat, i) => (
+                  <div key={i} className="bg-slate-900 p-5 rounded-2xl border border-slate-800 space-y-1">
+                    <span className="text-xs text-slate-400">{stat.label}</span>
+                    <div className="text-2xl font-black text-white">{stat.val}</div>
+                    <span className="text-[11px] text-cyan-400 font-medium">{stat.change}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 9: FAMILY PROFILES */}
+          {activeTab === 'family' && (
+            <div className="space-y-6 max-w-4xl mx-auto">
+              <div>
+                <h2 className="text-xl font-bold text-white">Family Healthcare Profiles</h2>
+                <p className="text-xs text-slate-400">Configure accessibility requirements and preferences for personalized ranking.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {FAMILY_PROFILES.map((prof) => (
+                  <div
+                    key={prof.id}
+                    onClick={() => setActiveProfile(prof)}
+                    className={`bg-slate-900 p-5 rounded-2xl border cursor-pointer transition space-y-3 ${
+                      activeProfile.id === prof.id
+                        ? 'border-cyan-500 ring-2 ring-cyan-500/20 shadow-lg'
+                        : 'border-slate-800 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="text-3xl">{prof.icon}</div>
+                    <div>
+                      <h3 className="font-bold text-white text-base">{prof.name}</h3>
+                      <p className="text-xs text-cyan-400 font-medium">{prof.relation} ({prof.age} yrs)</p>
+                    </div>
+                    <div className="space-y-1 text-xs text-slate-400 pt-2 border-t border-slate-800">
+                      <div>Wheelchair: <b className="text-slate-200">{prof.wheelchairRequired ? 'Yes' : 'No'}</b></div>
+                      <div>Insurance: <b className="text-slate-200">{prof.insurance}</b></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 10: PROVIDER B2B DASHBOARD */}
+          {activeTab === 'b2b' && (
+            <div className="space-y-6 max-w-5xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                    <LayoutDashboard className="w-5 h-5 text-cyan-400" />
+                    <span>Hospital & Provider B2B SaaS Dashboard</span>
+                  </h2>
+                  <p className="text-xs text-slate-400">Live bed management, ER capacity broadcast, and demand forecasting.</p>
+                </div>
+                <span className="px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold rounded-full">
+                  Partner Portal Active
+                </span>
+              </div>
+
+              <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <span className="text-xs text-slate-400">Current ER Capacity</span>
+                    <div className="text-2xl font-bold text-amber-400">62% Occupied</div>
+                  </div>
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <span className="text-xs text-slate-400">Predicted Triage Wait</span>
+                    <div className="text-2xl font-bold text-emerald-400">18 Mins</div>
+                  </div>
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                    <span className="text-xs text-slate-400">Incoming CareLink Patients</span>
+                    <div className="text-2xl font-bold text-cyan-400">8 In-Transit</div>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-slate-800 space-y-3">
+                  <h3 className="text-sm font-bold text-white">Broadcast Emergency Status Override</h3>
+                  <div className="flex gap-3">
+                    <button onClick={() => alert("ER Status updated to Normal Queue.")} className="px-4 py-2 rounded-xl bg-emerald-500/20 text-emerald-300 text-xs font-bold border border-emerald-500/30">
+                      🟢 Set Normal
+                    </button>
+                    <button onClick={() => alert("ER Status updated to Surge Alert.")} className="px-4 py-2 rounded-xl bg-red-500/20 text-red-300 text-xs font-bold border border-red-500/30">
+                      🔴 Broadcast Surge Alert
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </main>
+    </div>
+  );
+}
